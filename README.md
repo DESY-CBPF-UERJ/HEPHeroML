@@ -1,14 +1,15 @@
-# HEPML
-**Machine Learning tool for the DESY-CBPF-UERJ collaboration**
+# ![HEPHeroML](logoml.svg)
+
+**HEPHeroML - Machine Learning tool for the DESY-CBPF-UERJ collaboration**
 
 General information
 -----------
 
-* This code is meant to be used in association with the HEPAnalysis framework.
+* This code is meant to be used in association with the HEPHero framework.
 
 * The training setup is made at the beginning of the file **train.py**.
 
-* The code reads the data stored inside the **<output_path>/datasets** folder created by the tool **grouper.py** of the HEPAnalysis framework.
+* The code reads the data stored inside the **<output_path>/datasets** folder created by the tool **grouper.py** of the HEPHero framework.
 
 * The training results and files are stored in **< output_path >/datasets/< period >/ML/< signal_name >/**
 
@@ -18,17 +19,17 @@ Quick start
 
 Inside your private area (NOT in the eos or dust area and NOT inside a CMSSW release), download the code.  
 ```bash
-git clone https://github.com/HHDM-ML-project/HEPML.git
+git clone https://github.com/DESY-CBPF-UERJ/HEPHeroML.git
 ```
 
-Source the hepenv environment before work with the HEPML:
+Source the hepenv environment before work with the HEPHeroML:
 ```
 hepenv
 ```
 
-Enter in the HEPML directory:  
+Enter in the HEPHeroML directory:  
 ```bash
-cd HEPML
+cd HEPHeroML
 ```
 
 Know how many models(jobs) the code is setted to train (information needed to submit jobs):  
