@@ -77,8 +77,12 @@ chmod +x submit_jobs.sh
 ```  
 3. Submit all the **N** jobs the code is setted to train:  
 ```bash
-./submit_jobs.sh flavour N
+./submit_jobs.sh flavour N trainer
 ```  
+Ex.:
+```bash
+./submit_jobs.sh workday 32 train_OPENDATA_Class.py
+```
 
 Evaluate the results
 -----------
