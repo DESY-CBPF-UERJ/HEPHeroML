@@ -7,14 +7,14 @@ General information
 
 * This code is meant to be used in association with the HEPHero framework.
 
-* The training setup is made at the beginning of the file **train.py**.
+* The training setup is made in the python scripts inside the directory **setups**.
 
-* The code reads the data stored inside the **<output_path>/datasets** folder created by the tool **grouper.py** of the HEPHero framework.
+* The input data consists of h5 files created by the tool **grouper.py** of the HEPHero framework.
 
-* The training results and files are stored in **< output_path >/datasets/< period >/ML/< signal_name >/**
+* The training results and files are stored in the smae directory of the h5 files.
 
 
-Quick start
+Starting
 -----------
 
 Inside your private area (NOT in the eos or dust area and NOT inside a CMSSW release), download the code.  
@@ -32,21 +32,41 @@ Enter in the HEPHeroML directory:
 cd HEPHeroML
 ```
 
-Know how many models(jobs) the code is setted to train (information needed to submit jobs):  
+
+Generating the trainer
+-----------
+
+After setup the model and training in one of the python scripts inside **setups**, generate the trainer using the **generate_trainer.py** script. Example: Generate the trainer for the analysis **OPENDATA** with the tag **Class** (defined inside **setups/OPENDATA.py**):
 ```bash
-python train.py -j -1
+python generate_trainer.py -a OPENDATA
+```
+It will create the trainer script **train_OPENDATA_Class.py**.
+
+
+
+Running the trainer
+-----------
+Know how many jobs the code is setted to train (information needed to submit jobs):
+```bash
+python train_OPENDATA_Class.py -j -1
 ```
 
-Train the model in the position **n** of the list for the signal **signal_name**:  
+List the jobs the code is setted to train:
 ```bash
-python train.py -j n -s signal_name
+python train_OPENDATA_Class.py -j -2
+```
+
+Train the model in the position **n** of the list:
+```bash
+python train_OPENDATA_Class.py -j n
 ```
 Ex.:
 ```bash
-python train.py -j 2 -s Signal_1000_100
+python train_OPENDATA_Class.py -j 2
 ```
 
-Submit condor jobs:  
+Submit condor jobs
+-----------
 1. Make **submit_jobs.sh** an executable:  
 ```bash
 chmod +x submit_jobs.sh
@@ -57,17 +77,19 @@ chmod +x submit_jobs.sh
 ```  
 3. Submit all the **N** jobs the code is setted to train:  
 ```bash
-./submit_jobs.sh flavour N signal_name
+./submit_jobs.sh flavour N
 ```  
 
+Evaluate the results
+-----------
 After the jobs have finished, evaluate the training results:
 ```bash
-python evaluate.py -s selection_name -p period
+python evaluate.py -s selection_name -p period -a analysis -t tag -l library
 ```
 Ex.:
 ```bash
-python evaluate.py -s ML -p 17
+python evaluate.py -s MLOD -p 12 -a OPENDATA -t Class -l torch
 ```
-period = APV_16, 16, 17, or 18
+period = 12, APV_16, 16, 17, or 18
 
 

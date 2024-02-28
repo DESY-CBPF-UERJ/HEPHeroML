@@ -31,6 +31,8 @@ then
     echo "tomorrow     = 1 day"
     echo "testmatch    = 3 days"
     echo "nextweek     = 1 week"
+    echo ""
+    echo "local        = it will run the jobs locally"
 elif [ "$1" == "local" ]
 then
     python $trainer --clean
