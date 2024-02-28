@@ -5,6 +5,7 @@ models/*.json
 models/*.csv
 plots/*.png
 plots/*.pdf
+train_*.py
 ..gitignore.kate-swp
 .vscode
 

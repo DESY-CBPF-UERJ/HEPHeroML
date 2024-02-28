@@ -107,10 +107,12 @@ def read_files(basedir, period, mode="normal", features=[]):
 
 
 #=====================================================================================================================
-def join_datasets(ds, new_name, input_list, mode="normal"):
+def join_datasets(ds, new_name, input_list, mode="normal", combination="xsec", delete_inputs=True):
     
     datasets_list = []
     for input_name in input_list:
+        if combination == "flat":
+            ds[input_name].loc[:,"evtWeight"] = ds[input_name]["evtWeight"]/ds[input_name]["evtWeight"].sum()
         datasets_list.append(ds[input_name])
 
     good_list = False
@@ -152,9 +154,10 @@ def join_datasets(ds, new_name, input_list, mode="normal"):
     else:
         print("Type of the items is not supported!")
     
-    if good_list:
-        for input_name in input_list:
-            del ds[input_name]
+    if delete_inputs:
+        if good_list:
+            for input_name in input_list:
+                del ds[input_name]
     
     del datasets_list
 
@@ -568,7 +571,7 @@ def batch_generator(data, batch_size):
         
         
 #=====================================================================================================================
-def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, source_w, target_x, target_w, parameters, n_var, n_classes, n_iterations = 5000, signal_param = None, mode = "keras", stat_values = None, eval_frac = 0.2):
+def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, source_w, target_x, target_w, parameters, n_var, n_classes, n_iterations = 5000, signal_param = None, mode = "keras", stat_values = None, eval_step_size = 0.2, feature_info = False):
     
     model_type = parameters[0]
     batch_size = parameters[5]
@@ -723,8 +726,8 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
             # Create batch samples
             train_batches = batch_generator([train_x, train_y, train_w], batch_size)
             
-            eval_train_batches = batch_generator([train_x, train_y, train_w], int(len(train_x)*eval_frac))
-            eval_test_batches = batch_generator([test_x, test_y, test_w], int(len(train_x)*eval_frac))
+            eval_train_batches = batch_generator([train_x, train_y, train_w], eval_step_size)
+            eval_test_batches = batch_generator([test_x, test_y, test_w], eval_step_size)
         
             iteration = []
             train_acc = []
@@ -814,6 +817,9 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
         
             adv_source_acc = np.zeros_like(test_acc)
             adv_target_acc = np.zeros_like(test_acc)
+
+            features_score = []
+            features_score_unc = []
             
         #---------------------------------------------------------------------------------------
         # PNN training
@@ -965,8 +971,15 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
             # Create batch samples
             train_batches = batch_generator([train_x, train_y, train_w], batch_size)
             
-            eval_train_batches = batch_generator([train_x, train_y, train_w], int(len(train_x)*eval_frac))
-            eval_test_batches = batch_generator([test_x, test_y, test_w], int(len(train_x)*eval_frac))
+            #eval_train_batches = batch_generator([train_x, train_y, train_w], int(len(train_x)*eval_step_size))
+            #eval_test_batches = batch_generator([test_x, test_y, test_w], int(len(train_x)*eval_step_size))
+            #eval_step_size = 1000
+            n_eval_train_steps = int(len(train_x)/eval_step_size) + 1
+            last_eval_train_step = len(train_x)%eval_step_size
+            train_w_sum = train_w.sum()
+            n_eval_test_steps = int(len(test_x)/eval_step_size) + 1
+            last_eval_test_step = len(test_x)%eval_step_size
+            test_w_sum = test_w.sum()
             
             #------------------------------------------------------------------------------------
             # Import the libraries and set the random seed
@@ -990,6 +1003,7 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
                 #------------------------------------------------------------------------------------
                 #Option available, see 3_2_Mini_Batch_Descent.py
                 #trainloader = DataLoader(dataset = dataset, batch_size = 1)
+                # Return randomly a sample with number of elements equals to the batch size
                 train_x_b, train_y_b, train_w_b = next(train_batches)
                 
                 if model_type == "PNN":
@@ -1025,9 +1039,10 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
                 if ((i + 1) % 10 == 0):
                     
                     #print("Evaluating!!!")
-                    eval_train_x, eval_train_y, eval_train_w = next(eval_train_batches)
-                    eval_test_x, eval_test_y, eval_test_w = next(eval_test_batches)
+                    #eval_train_x, eval_train_y, eval_train_w = next(eval_train_batches)
+                    #eval_test_x, eval_test_y, eval_test_w = next(eval_test_batches)
                     
+                    """    
                     if model_type == "PNN":
                         # Produce random values for signal parameters in background events for evaluation
                         train_bkg_len = len(eval_train_x[:,-1][eval_train_y != 0])
@@ -1038,24 +1053,55 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
                         if len(signal_param) == 2:
                             eval_train_x[:,-2][eval_train_y != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
                             eval_train_x[:,-1][eval_train_y != 0] = p1_min + (p1_max - p1_min)*np.random.rand(train_bkg_len)
+                    """
                     
-                    #------------------------------------------------------------------------------------
-                    eval_train_yhat = class_discriminator_model(torch.FloatTensor(eval_train_x))
-                    train_loss_i = criterion(torch.tensor(eval_train_y).view(-1,1), eval_train_yhat, torch.FloatTensor(eval_train_w).view(-1,1)).item()
+                    train_loss_i = 0
+                    train_acc_i = 0
+                    for i_eval in range(n_eval_train_steps): 
+                        if i_eval < n_eval_train_steps-1:
+                            eval_train_x = train_x[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
+                            eval_train_y = train_y[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
+                            eval_train_w = train_w[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
+                        else:
+                            eval_train_x = train_x[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_train_step]
+                            eval_train_y = train_y[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_train_step]
+                            eval_train_w = train_w[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_train_step]
+                        
+                        eval_train_yhat = class_discriminator_model(torch.FloatTensor(eval_train_x))
+                        eval_train_w_sum = eval_train_w.sum()
+                        train_loss_i += eval_train_w_sum*criterion(torch.tensor(eval_train_y).view(-1,1), eval_train_yhat, torch.FloatTensor(eval_train_w).view(-1,1)).item()
+                        if parameters[4] == 'cce':
+                            train_acc_i += eval_train_w_sum*np.average(eval_train_y == eval_train_yhat.max(1)[1].numpy(), weights=eval_train_w)
+                        elif parameters[4] == 'bce':
+                            train_acc_i += eval_train_w_sum*np.average(eval_train_y == (eval_train_yhat[:, 0] > 0.5).numpy(), weights=eval_train_w)
+                        del eval_train_yhat
+                    train_loss_i = train_loss_i/train_w_sum
+                    train_acc_i = train_acc_i/train_w_sum    
+                        
+                        
+                    test_loss_i = 0
+                    test_acc_i = 0    
+                    for i_eval in range(n_eval_test_steps): 
+                        if i_eval < n_eval_test_steps-1:
+                            eval_test_x = test_x[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
+                            eval_test_y = test_y[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
+                            eval_test_w = test_w[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
+                        else:
+                            eval_test_x = test_x[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_test_step]
+                            eval_test_y = test_y[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_test_step]
+                            eval_test_w = test_w[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_test_step]    
+                        
+                        eval_test_yhat = class_discriminator_model(torch.FloatTensor(eval_test_x))
+                        eval_test_w_sum = eval_test_w.sum()
+                        test_loss_i += eval_test_w_sum*criterion(torch.tensor(eval_test_y).view(-1,1), eval_test_yhat, torch.FloatTensor(eval_test_w).view(-1,1)).item()
+                        if parameters[4] == 'cce':
+                            test_acc_i += eval_test_w_sum*np.average(eval_test_y == eval_test_yhat.max(1)[1].numpy(), weights=eval_test_w)
+                        elif parameters[4] == 'bce':
+                            test_acc_i += eval_test_w_sum*np.average(eval_test_y == (eval_test_yhat[:, 0] > 0.5).numpy(), weights=eval_test_w)
+                        del eval_test_yhat
+                    test_loss_i = test_loss_i/test_w_sum
+                    test_acc_i = test_acc_i/test_w_sum
                     
-                    if parameters[4] == 'cce':
-                        train_acc_i = np.average(eval_train_y == eval_train_yhat.max(1)[1].numpy(), weights=eval_train_w)
-                    elif parameters[4] == 'bce':
-                        train_acc_i = np.average(eval_train_y == (eval_train_yhat[:, 0] > 0.5).numpy(), weights=eval_train_w)
-                    del eval_train_yhat
-                    
-                    eval_test_yhat = class_discriminator_model(torch.FloatTensor(eval_test_x))
-                    test_loss_i = criterion(torch.tensor(eval_test_y).view(-1,1), eval_test_yhat, torch.FloatTensor(eval_test_w).view(-1,1)).item()
-                    if parameters[4] == 'cce':
-                        test_acc_i = np.average(eval_test_y == eval_test_yhat.max(1)[1].numpy(), weights=eval_test_w)
-                    elif parameters[4] == 'bce':
-                        test_acc_i = np.average(eval_test_y == (eval_test_yhat[:, 0] > 0.5).numpy(), weights=eval_test_w)
-                    del eval_test_yhat
                     
                     #------------------------------------------------------------------------------------
                     iteration.append(i+1)
@@ -1070,7 +1116,7 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
                         #checkpoint['iteration']=iteration
                         checkpoint['model_state_dict']=class_discriminator_model.state_dict()
                         #checkpoint['optimizer_state_dict']= optimizer.state_dict()
-                        #checkpoint['loss']=min_loss
+                        checkpoint['loss']=min_loss
                         early_stopping_count = 0
                     else:
                         early_stopping_count += 1
@@ -1094,7 +1140,46 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
                 #optimizer.state_dict()
                 #optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
                 #optimizer.state_dict()
-                #loss =checkpoint['loss']
+                min_loss = checkpoint['loss']
+                
+                # Permutation feature importance
+                # https://cms-ml.github.io/documentation/optimization/importance.html
+                features_score = []
+                features_score_unc = []
+                if feature_info:
+                    print("")
+                    print("Computing Feature Importance...")
+                    for ivar in tqdm(range(n_var)):
+                        losses = []
+                        for irep in range(30):
+                            
+                            test_x_shuffled = test_x.copy()
+                            np.random.shuffle(test_x_shuffled[:,ivar])
+                            
+                            test_loss_i = 0
+                            for i_eval in range(n_eval_test_steps): 
+                                if i_eval < n_eval_test_steps-1:
+                                    eval_test_x = test_x_shuffled[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
+                                    eval_test_y = test_y[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
+                                    eval_test_w = test_w[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
+                                else:
+                                    eval_test_x = test_x_shuffled[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_test_step]
+                                    eval_test_y = test_y[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_test_step]
+                                    eval_test_w = test_w[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_test_step]    
+                                
+                                eval_test_yhat = class_discriminator_model(torch.FloatTensor(eval_test_x))
+                                eval_test_w_sum = eval_test_w.sum()
+                                test_loss_i += eval_test_w_sum*criterion(torch.tensor(eval_test_y).view(-1,1), eval_test_yhat, torch.FloatTensor(eval_test_w).view(-1,1)).item()
+                                del eval_test_yhat
+                            test_loss_i = test_loss_i/test_w_sum
+                        
+                            losses.append(test_loss_i)
+                        losses = np.array(losses)
+                        mean_loss = np.mean(losses)
+                        std_loss = np.std(losses)
+                    
+                        features_score.append(np.around((mean_loss - min_loss)/np.abs(min_loss), decimals=3))
+                        features_score_unc.append(np.around(std_loss/np.abs(min_loss), decimals=3))
         
             adv_source_acc = np.zeros_like(test_acc)
             adv_target_acc = np.zeros_like(test_acc)
@@ -1105,6 +1190,6 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
     #plot_model(domain_discriminator_model, "plots/domain_discriminator_model.pdf", show_shapes=True)
             
             
-    return class_discriminator_model, np.array(iteration), np.array(train_acc), np.array(test_acc), np.array(train_loss), np.array(test_loss), np.array(adv_source_acc), np.array(adv_target_acc)
+    return class_discriminator_model, np.array(iteration), np.array(train_acc), np.array(test_acc), np.array(train_loss), np.array(test_loss), np.array(adv_source_acc), np.array(adv_target_acc), np.array(features_score), np.array(features_score_unc)
 
 
