@@ -37,7 +37,7 @@ elif [ "$1" == "local" ]
 then
     python $trainer --clean
     ijob=0
-    while [[ $ijob < $2 ]]
+    while (( $ijob < $2 ))
     do
       python $trainer -j $ijob
       ijob=$(( ijob+1 ))
