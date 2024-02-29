@@ -85,7 +85,7 @@ with open(trainer_name, "w") as newfile:
 
 
 #======ADD FIXED PART==============================================================================
-linelist = open("setups/train_source.py").readlines()
+linelist = open("setups/config_train.py").readlines()
 
 with open(trainer_name, "a") as newfile:
     flag = 0
