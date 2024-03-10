@@ -183,13 +183,15 @@ df = {}
 for i in range(len(class_names)):
     df[i] = datasets[class_names[i]].copy()
 
+seed = 16
+
 df_train = {}
 df_test = {}
 for key in df.keys():
     dataset = df[key] 
     #dataset = dataset[(dataset["RecoLepID"] < 1000) & (dataset["Nbjets"] > 0)]
     if len(dataset) > 0 :
-        dataset = dataset.sample(frac=1)
+        dataset = dataset.sample(frac=1, random_state=seed)
         dataset = dataset.reset_index(drop=True)
         dataset["class"] = key
 
@@ -292,7 +294,7 @@ if args.check_flag:
 #===============================================================================
 
 #df_full_train = pd.read_csv(os.path.join(inpath,"train.csv"))
-df_full_train = df_full_train.sample(frac=1)
+df_full_train = df_full_train.sample(frac=1, random_state=seed)
 train_x = df_full_train[variables]
 train_x = train_x.values
 train_y = np.array(df_full_train['class']).ravel()
@@ -302,7 +304,7 @@ print("Labels shape = " + str(train_y.shape))
 print("Weights shape = " + str(train_w.shape))
 
 #df_full_test = pd.read_csv(os.path.join(inpath,"test.csv"))
-df_full_test = df_full_test.sample(frac=1)
+df_full_test = df_full_test.sample(frac=1, random_state=seed)
 test_x = df_full_test[variables]
 test_x = test_x.values
 test_y = np.array(df_full_test['class']).ravel()
@@ -310,14 +312,14 @@ test_w = np.array(df_full_test['mvaWeight']).ravel()                      # weig
 
 #df_source = pd.read_csv(os.path.join(inpath,"source.csv"))
 df_source = df_full_train.copy()
-df_source = df_source.sample(frac=1)
+df_source = df_source.sample(frac=1, random_state=seed)
 source_x = df_source[variables]
 source_x = source_x.values
 source_w = np.array(df_source['mvaWeight']).ravel()                  # weight to source x target comparison
 
 #df_target = pd.read_csv(os.path.join(inpath,"target.csv"))
 df_target = df_full_test.copy()
-df_target = df_target.sample(frac=1)
+df_target = df_target.sample(frac=1, random_state=seed)
 target_x = df_target[variables]
 target_x = target_x.values
 target_w = np.array(df_target['mvaWeight']).ravel()                  # weight to source x target comparison
@@ -364,6 +366,7 @@ class_model, iteration, train_acc, test_acc, train_loss, test_loss, adv_source_a
     mode = library,
     stat_values = stat_values,
     eval_step_size = eval_step_size,
+    feature_info = feature_info,
     )
 
 if library == "keras":
@@ -373,7 +376,7 @@ elif library == "torch":
     model_scripted = torch.jit.script(class_model) # Export to TorchScript
     model_scripted.save(os.path.join(model_outpath, "model_scripted.pt"))
 
-"""
+
 if feature_info:
     #===============================================================================
     # SAVE FEATURE IMPORTANCE INFORMATION 
@@ -410,7 +413,7 @@ if feature_info:
 
     plt.subplots_adjust(left=0.15, bottom=0.115, right=0.990, top=0.95, wspace=0.18, hspace=0.165)
     plt.savefig(os.path.join(model_outpath, "features.png"))
-"""
+
 
 #===============================================================================
 # SAVE TRAINING INFORMATION 

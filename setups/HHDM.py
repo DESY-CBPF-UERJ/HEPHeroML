@@ -33,6 +33,7 @@ num_max_iterations = 2000
 # Inputs setup
 #--------------------------------------------------------------------------------------------------
 input_mode = "normal" #"parameterized"
+feature_info = False
 
 input_variables = [
     ["LeadingLep_pt",           r"$\mathrm{leading}\,p_\mathrm{T}^\mathrm{l}$"],

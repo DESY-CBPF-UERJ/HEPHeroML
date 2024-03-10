@@ -33,6 +33,7 @@ num_max_iterations = 2000
 # Inputs setup
 #--------------------------------------------------------------------------------------------------
 input_mode = "normal" #"parameterized"
+feature_info = False
 
 input_variables = [
     ["MuonL_pt",                r"$p_\mathrm{T}(\mu)$"],

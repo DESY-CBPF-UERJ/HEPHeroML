@@ -70,6 +70,7 @@ with open(trainer_name, "w") as newfile:
     newfile.write("# Inputs setup\n")
     newfile.write("#-------------------------------------------------------------------------------------\n")
     newfile.write("input_mode = '" + sm.input_mode +"'\n")
+    newfile.write("feature_info = " + str(sm.feature_info) +"\n")
     newfile.write("\n")
     newfile.write("input_variables = " + str(sm.input_variables) +"\n")
     newfile.write("\n")

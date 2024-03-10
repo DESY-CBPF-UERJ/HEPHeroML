@@ -1,5 +1,4 @@
 import sys
-import numpy as np
 import pandas as pd
 import os
 import concurrent.futures as cf
@@ -22,7 +21,13 @@ from tqdm import tqdm
 import json
 import h5py
 
+seed = 16
+import numpy as np
+numpy_random = np.random.RandomState(seed)
 import torch
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
 import torch.nn as nn
 
 
@@ -564,7 +569,7 @@ def batch_generator(data, batch_size):
     #This
     all_examples_indices = len(data[0])
     while True:
-        mini_batch_indices = np.random.choice(all_examples_indices, size=batch_size, replace=False)
+        mini_batch_indices = numpy_random.choice(all_examples_indices, size=batch_size, replace=False)
         tbr = [k[mini_batch_indices] for k in data]
         yield tbr
         
@@ -748,11 +753,11 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
                     train_bkg_len = len(train_x_b[:,-1][train_y_b != 0])
                     
                     if len(signal_param) == 1:
-                        train_x_b[:,-1][train_y_b != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
+                        train_x_b[:,-1][train_y_b != 0] = p0_min + (p0_max - p0_min)*numpy_random.rand(train_bkg_len)
                     
                     if len(signal_param) == 2:
-                        train_x_b[:,-2][train_y_b != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
-                        train_x_b[:,-1][train_y_b != 0] = p1_min + (p1_max - p1_min)*np.random.rand(train_bkg_len)
+                        train_x_b[:,-2][train_y_b != 0] = p0_min + (p0_max - p0_min)*numpy_random.rand(train_bkg_len)
+                        train_x_b[:,-1][train_y_b != 0] = p1_min + (p1_max - p1_min)*numpy_random.rand(train_bkg_len)
             
                 # Train model to learn class
                 if parameters[4] == 'cce':
@@ -770,11 +775,11 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
                         train_bkg_len = len(eval_train_x[:,-1][eval_train_y != 0])
                         
                         if len(signal_param) == 1:
-                            eval_train_x[:,-1][eval_train_y != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
+                            eval_train_x[:,-1][eval_train_y != 0] = p0_min + (p0_max - p0_min)*numpy_random.rand(train_bkg_len)
                         
                         if len(signal_param) == 2:
-                            eval_train_x[:,-2][eval_train_y != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
-                            eval_train_x[:,-1][eval_train_y != 0] = p1_min + (p1_max - p1_min)*np.random.rand(train_bkg_len)
+                            eval_train_x[:,-2][eval_train_y != 0] = p0_min + (p0_max - p0_min)*numpy_random.rand(train_bkg_len)
+                            eval_train_x[:,-1][eval_train_y != 0] = p1_min + (p1_max - p1_min)*numpy_random.rand(train_bkg_len)
                         
                     if parameters[4] == 'cce':
                         train_acc_i = class_discriminator_model.evaluate(eval_train_x,to_categorical(eval_train_y, num_classes=n_classes), sample_weight=eval_train_w, verbose = 0)
@@ -867,11 +872,11 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
                 train_bkg_len = len(train_x_b[:,-1][train_y_b[:,0] != 0])
                 
                 if len(signal_param) == 1:
-                    train_x_b[:,-1][train_y_b[:,0] != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
+                    train_x_b[:,-1][train_y_b[:,0] != 0] = p0_min + (p0_max - p0_min)*numpy_random.rand(train_bkg_len)
                 
                 if len(signal_param) == 2:
-                    train_x_b[:,-2][train_y_b[:,0] != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
-                    train_x_b[:,-1][train_y_b[:,0] != 0] = p1_min + (p1_max - p1_min)*np.random.rand(train_bkg_len)
+                    train_x_b[:,-2][train_y_b[:,0] != 0] = p0_min + (p0_max - p0_min)*numpy_random.rand(train_bkg_len)
+                    train_x_b[:,-1][train_y_b[:,0] != 0] = p1_min + (p1_max - p1_min)*numpy_random.rand(train_bkg_len)
                 
                 # Train model to learn class
                 if parameters[4] == 'cce':
@@ -885,11 +890,11 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
                     train_bkg_len = len(train_x[:,-1][train_y != 0])
                     
                     if len(signal_param) == 1:
-                        train_x[:,-1][train_y != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
+                        train_x[:,-1][train_y != 0] = p0_min + (p0_max - p0_min)*numpy_random.rand(train_bkg_len)
                     
                     if len(signal_param) == 2:
-                        train_x[:,-2][train_y != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
-                        train_x[:,-1][train_y != 0] = p1_min + (p1_max - p1_min)*np.random.rand(train_bkg_len)
+                        train_x[:,-2][train_y != 0] = p0_min + (p0_max - p0_min)*numpy_random.rand(train_bkg_len)
+                        train_x[:,-1][train_y != 0] = p1_min + (p1_max - p1_min)*numpy_random.rand(train_bkg_len)
                     
                     # Evaluate
                     if parameters[4] == 'cce':
@@ -1011,11 +1016,11 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
                     train_bkg_len = len(train_x_b[:,-1][train_y_b != 0])
                     
                     if len(signal_param) == 1:
-                        train_x_b[:,-1][train_y_b != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
+                        train_x_b[:,-1][train_y_b != 0] = p0_min + (p0_max - p0_min)*numpy_random.rand(train_bkg_len)
                     
                     if len(signal_param) == 2:
-                        train_x_b[:,-2][train_y_b != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
-                        train_x_b[:,-1][train_y_b != 0] = p1_min + (p1_max - p1_min)*np.random.rand(train_bkg_len)
+                        train_x_b[:,-2][train_y_b != 0] = p0_min + (p0_max - p0_min)*numpy_random.rand(train_bkg_len)
+                        train_x_b[:,-1][train_y_b != 0] = p1_min + (p1_max - p1_min)*numpy_random.rand(train_bkg_len)
             
                 #------------------------------------------------------------------------------------
                 # Train model to learn class
@@ -1048,11 +1053,11 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
                         train_bkg_len = len(eval_train_x[:,-1][eval_train_y != 0])
                         
                         if len(signal_param) == 1:
-                            eval_train_x[:,-1][eval_train_y != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
+                            eval_train_x[:,-1][eval_train_y != 0] = p0_min + (p0_max - p0_min)*numpy_random.rand(train_bkg_len)
                         
                         if len(signal_param) == 2:
-                            eval_train_x[:,-2][eval_train_y != 0] = p0_min + (p0_max - p0_min)*np.random.rand(train_bkg_len)
-                            eval_train_x[:,-1][eval_train_y != 0] = p1_min + (p1_max - p1_min)*np.random.rand(train_bkg_len)
+                            eval_train_x[:,-2][eval_train_y != 0] = p0_min + (p0_max - p0_min)*numpy_random.rand(train_bkg_len)
+                            eval_train_x[:,-1][eval_train_y != 0] = p1_min + (p1_max - p1_min)*numpy_random.rand(train_bkg_len)
                     """
                     
                     train_loss_i = 0
@@ -1154,7 +1159,7 @@ def train_model(train_x, train_y, train_w, test_x, test_y, test_w, source_x, sou
                         for irep in range(30):
                             
                             test_x_shuffled = test_x.copy()
-                            np.random.shuffle(test_x_shuffled[:,ivar])
+                            numpy_random.shuffle(test_x_shuffled[:,ivar])
                             
                             test_loss_i = 0
                             for i_eval in range(n_eval_test_steps): 
