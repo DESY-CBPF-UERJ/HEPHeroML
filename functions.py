@@ -3,24 +3,6 @@ import pandas as pd
 import os
 import concurrent.futures as cf
 from operator import itemgetter
-from tensorflow.keras.layers import Input, Dense, Activation, BatchNormalization, PReLU, Dropout
-from tensorflow.keras.models import Model
-from tensorflow.keras.models import load_model
-from tensorflow.keras import optimizers
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.utils import plot_model
-#from tensorflow.keras.models import load_model as tf_load_model
-import time
-from sklearn.metrics import accuracy_score
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gs
-from matplotlib.ticker import AutoMinorLocator, MultipleLocator
-pd.set_option('display.expand_frame_repr', False)
-import sys
-import pandas as pd
-import os
-import concurrent.futures as cf
-from operator import itemgetter
 import time
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
@@ -1040,5 +1022,4 @@ def train_model(outpath_base, N_signal, train_frac, load_size, parameters, varia
 
 
     return class_discriminator_model, np.array(iteration), np.array(train_acc), np.array(test_acc), np.array(train_loss), np.array(test_loss), np.array(adv_source_acc), np.array(adv_target_acc), np.array(features_score), np.array(features_score_unc)
-
 

@@ -10,8 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gs
 from matplotlib.ticker import AutoMinorLocator
 import json
-from functions import read_files
-from functions import join_datasets
+from functions import get_sample
 from functions import train_model
 from functions import step_plot
 import functions as func
