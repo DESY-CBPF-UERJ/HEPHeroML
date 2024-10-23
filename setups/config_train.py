@@ -31,7 +31,7 @@ parser.set_defaults(clean_flag=False)
 args = parser.parse_args()
 
 
-outpath = os.environ.get("HEP_OUTPATH")
+outpath = "/home/gilson/cernbox/HEP/ANALYSIS"
 outpath_base = os.path.join(outpath, analysis, selection, "datasets")
 
 
@@ -51,7 +51,7 @@ for key in classes:
             N_signal_points = len(classes[key][0])
             break
 
-modelName = [] 
+modelName = []
 model = []
 for i_signal in range(N_signal_points):
     for i_NN_type in NN_type:
@@ -120,13 +120,13 @@ print('Results will be stored in ' + ml_outpath)
 
 #===============================================================================
 import torch
-                           
-    
+
+
 variables = [input_variables[i][0] for i in range(len(input_variables))]
 var_names = [input_variables[i][1] for i in range(len(input_variables))]
 
 signal_parameters = [input_parameters[i][0] for i in range(len(input_parameters))]
-signal_parameters_names = [input_parameters[i][1] for i in range(len(input_parameters))] 
+signal_parameters_names = [input_parameters[i][1] for i in range(len(input_parameters))]
 
 
 if input_mode == "parameterized":
@@ -137,87 +137,33 @@ if input_mode == "parameterized":
         variables = variables + signal_parameters
         var_names = var_names + signal_parameters_names
 
-n_var = len(variables)
 
-
-#===============================================================================
-# Define signal and backgrounds datasets
-#===============================================================================
-
-datasets = read_files(outpath_base, model[N][7], features=variables+["evtWeight"])
-
-class_names = []
-class_labels = []
-colors = []
-for key in classes:
-    if input_mode == "parameterized":
-        if key[:6] == "Signal":
-            for proc in classes[key][0]:
-                signal_info = sgn.split("_")
-                datasets[proc]["m_H"] = int(signal_info[1])  # hardcode
-                datasets[proc]["m_a"] = int(signal_info[2])
-        else:
-            for proc in classes[key][0]:
-                datasets[proc]["m_H"] = 600  # dumb number
-                datasets[proc]["m_a"] = 300  # dumb number
-
-    if len(classes[key][0]) > 1 and key[:14] != "Signal_samples":
-        join_datasets(datasets, key, classes[key][0], mode=classes[key][1], combination=classes[key][2])
-
-    if key[:14] == "Signal_samples":
-        class_names.append(classes[key][0][N_signal])
-        class_labels.append(classes[key][0][N_signal])
-    else:
-        class_names.append(key)
-        class_labels.append(classes[key][3])
-    colors.append(classes[key][4])
 
 
 #===============================================================================
-# Preprocessing input data
+# Preprocessing input data (modify and stay)
 #===============================================================================
 print("")
 print("Preprocessing input data...")
 
-df = {}
-for i in range(len(class_names)):
-    df[i] = datasets[class_names[i]].copy()
-
 seed = 16
 
-df_train = {}
-df_test = {}
-for key in df.keys():
-    dataset = df[key] 
-    #dataset = dataset[(dataset["RecoLepID"] < 1000) & (dataset["Nbjets"] > 0)]
-    if len(dataset) > 0 :
-        dataset = dataset.sample(frac=1, random_state=seed)
-        dataset = dataset.reset_index(drop=True)
-        dataset["class"] = key
 
-        train_limit = int(train_frac*len(dataset))
-        df_train_i = dataset.loc[0:(train_limit-1),:].copy()
-        df_test_i = dataset.loc[train_limit:,:].copy()
-    
-        sum_weights = dataset["evtWeight"].sum()
-        train_factor = dataset["evtWeight"].sum()/df_train_i["evtWeight"].sum()
-        test_factor = dataset["evtWeight"].sum()/df_test_i["evtWeight"].sum()
-        df_train_i["evtWeight"] = df_train_i["evtWeight"]*train_factor 
-        df_test_i["evtWeight"] = df_test_i["evtWeight"]*test_factor
-        df_train_i['mvaWeight'] = df_train_i['evtWeight']/df_train_i['evtWeight'].sum()
-        df_test_i['mvaWeight'] = df_test_i['evtWeight']/df_test_i['evtWeight'].sum()
-
-        df_train[key] = df_train_i
-        df_test[key] = df_test_i
+ds_full_train, ds_full_test, class_names, class_labels, colors = get_sample(outpath_base, model[N][7], classes, N_signal, train_frac, load_size, 0, features=variables+["evtWeight"])
 
 
-list_train = [df_train[key] for key in df.keys()]
-df_mva = pd.concat(list_train).reset_index(drop=True)
+n_classes = len(classes)
+
+signal_param = []
+
+
+
+#=================================================================================
 
 mean = []
 std = []
 for i in range(len(variables)):
-    weighted_stats = DescrStatsW(df_mva[variables[i]], weights=df_mva["mvaWeight"], ddof=0)
+    weighted_stats = DescrStatsW(ds_full_train[variables[i]], weights=ds_full_train["mvaWeight"], ddof=0)
     mean.append(weighted_stats.mean)
     std.append(weighted_stats.std)
 print("mean: " + str(mean))
@@ -226,52 +172,34 @@ print("std: " + str(std))
 
 stat_values={"mean": mean, "std": std}
 
-if library == "keras":
-    with open(os.path.join(signal_outpath, "models", 'preprocessing.json'), 'w') as json_file:
-        json.dump(stat_values, json_file)
 
-    for key in df.keys():
-        df_train[key][variables] = (df_train[key][variables] - mean) / std
-        df_test[key][variables] = (df_test[key][variables] - mean) / std
+#==================================================================================
 
-    
 
-control = True
-for key in df.keys():
-    if control:
-        df_full_train = df_train[key].copy()
-        df_full_test = df_test[key].copy()
-        control = False
-    else:
-        df_full_train = pd.concat([df_full_train, df_train[key]])
-        df_full_test = pd.concat([df_full_test, df_test[key]])
 
-#df_full_train.to_csv("files/train.csv", index=False)
-#df_full_test.to_csv("files/test.csv", index=False)
-#del df_full_train, df_full_test
 
 
 #===============================================================================
-# Plot training and test distributions
+# Plot training and test distributions (modify and stay - only for batch size?)
 #===============================================================================
 for ivar in range(len(variables)):
-    
+
     fig1 = plt.figure(figsize=(10,7))
     gs1 = gs.GridSpec(1, 1)
     #==================================================
-    ax1 = plt.subplot(gs1[0])            
+    ax1 = plt.subplot(gs1[0])
     #==================================================
     var = variables[ivar]
     if library == "keras":
         bins = np.linspace(-2.5,2.5,51)
     elif library == "torch":
         bins = np.linspace(mean[ivar]-2.5*std[ivar],mean[ivar]+2.5*std[ivar],51)
-    for key in df.keys():
-        step_plot( ax1, var, df_train[key], label=class_labels[key]+" (train)", color=colors[key], weight="mvaWeight", bins=bins, error=True )
-        step_plot( ax1, var, df_test[key], label=class_labels[key]+" (test)", color=colors[key], weight="mvaWeight", bins=bins, error=True, linestyle='dotted' )
+    for ikey in range(len(class_names)):
+        step_plot( ax1, var, ds_full_train[ds_full_train["class"] == ikey], label=class_labels[ikey]+" (train)", color=colors[ikey], weight="mvaWeight", bins=bins, error=True )
+        step_plot( ax1, var, ds_full_test[ds_full_test["class"] == ikey], label=class_labels[ikey]+" (test)", color=colors[ikey], weight="mvaWeight", bins=bins, error=True, linestyle='dotted' )
     ax1.set_xlabel(var_names[ivar], size=14, horizontalalignment='right', x=1.0)
     ax1.set_ylabel("Events normalized", size=14, horizontalalignment='right', y=1.0)
-    
+
     ax1.tick_params(which='major', length=8)
     ax1.tick_params(which='minor', length=4)
     ax1.xaxis.set_minor_locator(AutoMinorLocator())
@@ -285,59 +213,15 @@ for ivar in range(len(variables)):
 
     plt.savefig(os.path.join(plots_outpath, var + '.png'))
 
-if args.check_flag:    
+
+
+del ds_full_train, ds_full_test, class_names, class_labels, colors
+
+if args.check_flag:
     sys.exit()
 
 
-#===============================================================================
-# Load Datasets
-#===============================================================================
 
-#df_full_train = pd.read_csv(os.path.join(inpath,"train.csv"))
-df_full_train = df_full_train.sample(frac=1, random_state=seed)
-train_x = df_full_train[variables]
-train_x = train_x.values
-train_y = np.array(df_full_train['class']).ravel()
-train_w = np.array(df_full_train['mvaWeight']).ravel()                    # weight to signal x bkg comparison
-print("Variables shape = " + str(train_x.shape))
-print("Labels shape = " + str(train_y.shape))
-print("Weights shape = " + str(train_w.shape))
-
-#df_full_test = pd.read_csv(os.path.join(inpath,"test.csv"))
-df_full_test = df_full_test.sample(frac=1, random_state=seed)
-test_x = df_full_test[variables]
-test_x = test_x.values
-test_y = np.array(df_full_test['class']).ravel()
-test_w = np.array(df_full_test['mvaWeight']).ravel()                      # weight to signal x bkg comparison
-
-#df_source = pd.read_csv(os.path.join(inpath,"source.csv"))
-df_source = df_full_train.copy()
-df_source = df_source.sample(frac=1, random_state=seed)
-source_x = df_source[variables]
-source_x = source_x.values
-source_w = np.array(df_source['mvaWeight']).ravel()                  # weight to source x target comparison
-
-#df_target = pd.read_csv(os.path.join(inpath,"target.csv"))
-df_target = df_full_test.copy()
-df_target = df_target.sample(frac=1, random_state=seed)
-target_x = df_target[variables]
-target_x = target_x.values
-target_w = np.array(df_target['mvaWeight']).ravel()                  # weight to source x target comparison
-         
-
-n_classes = len(df_full_train["class"].unique())
-
-signal_param = []
-if input_mode == "parameterized":
-    model[N][0] = "P" + model[N][0]
-    
-    for param in signal_parameters:
-        signal_param.append(np.sort(np.unique(df_train[0][param])))
-    
-    #print(signal_param)
-    #print(df_full_train[variables])
-    
-    
 #===============================================================================
 # RUN TRAINING
 #===============================================================================
@@ -345,29 +229,25 @@ print("")
 print("Training...")
 
 start = time.time()
-        
-  
+
+
 class_model, iteration, train_acc, test_acc, train_loss, test_loss, adv_source_acc, adv_target_acc, features_score, features_score_unc = train_model(
-    train_x, 
-    train_y, 
-    train_w, 
-    test_x, 
-    test_y, 
-    test_w,
-    source_x, 
-    source_w, 
-    target_x, 
-    target_w, 
-    model[N], 
-    n_var,
-    n_classes,
-    n_iterations = num_max_iterations, 
+    outpath_base,
+    N_signal,
+    train_frac,
+    load_size,
+    model[N],
+    variables,
+    classes,
+    n_iterations = num_max_iterations,
     signal_param = signal_param,
     mode = library,
     stat_values = stat_values,
     eval_step_size = eval_step_size,
     feature_info = feature_info,
     )
+
+
 
 if library == "keras":
     class_model.save(os.path.join(model_outpath, "model.h5"))
@@ -379,7 +259,7 @@ elif library == "torch":
 
 if feature_info:
     #===============================================================================
-    # SAVE FEATURE IMPORTANCE INFORMATION 
+    # SAVE FEATURE IMPORTANCE INFORMATION
     #===============================================================================
     df_feature = pd.DataFrame(list(zip(variables, features_score, features_score_unc, var_names)),columns=["Feature", "Score", "Score_unc", "Feature_name"])
     df_feature = df_feature.sort_values("Score", ascending=False)
@@ -416,7 +296,7 @@ if feature_info:
 
 
 #===============================================================================
-# SAVE TRAINING INFORMATION 
+# SAVE TRAINING INFORMATION
 #===============================================================================
 df_training = pd.DataFrame(list(zip(iteration, train_acc, test_acc, train_loss, test_loss, adv_source_acc, adv_target_acc)),columns=["iteration", "train_acc", "test_acc", "train_loss", "test_loss", "adv_source_acc", "adv_target_acc"])
 
@@ -424,10 +304,10 @@ df_training.to_csv(os.path.join(model_outpath, 'training.csv'), index=False)
 
 #iteration = df_training['iteration']
 #train_acc = df_training['train_acc']
-#test_acc = df_training['test_acc'] 
+#test_acc = df_training['test_acc']
 #train_loss = df_training['train_loss']
 #test_loss = df_training['test_loss']
-#adv_source_acc = df_training['adv_source_acc'] 
+#adv_source_acc = df_training['adv_source_acc']
 #adv_target_acc = df_training['adv_target_acc']
 #adv_sum_acc = np.array(df_training['adv_source_acc']) + np.array(df_training['adv_target_acc'])
 
@@ -471,7 +351,7 @@ ax2 = plt.subplot(gs1[1])
 plt.axvline(position, color='grey')
 plt.plot(iteration, train_loss, "-", color='red', label='Train (Class Loss)')
 plt.plot(iteration, test_loss, "-", color='blue', label='Test (Class Loss)')
-plt.yscale('log')
+#plt.yscale('log')
 ax2.set_xlabel("iterations", size=14, horizontalalignment='right', x=1.0)
 ax2.set_ylabel("Loss", size=14, horizontalalignment='right', y=1.0)
 ax2.tick_params(which='major', length=8)
@@ -492,75 +372,81 @@ plt.savefig(os.path.join(model_outpath, "training.png"))
 
 
 #===============================================================================
-# CHECK OVERTRAINING AND ROC
+# CHECK OVERTRAINING
 #===============================================================================
-for key in df.keys():
-    train_x = df_train[key][variables]
+ds_full_train, ds_full_test, class_names, class_labels, colors = get_sample(outpath_base, model[N][7], classes, N_signal, train_frac, load_size, 0, features=variables+["evtWeight"])
+
+for i in range(n_classes):
+    pred_name = 'score_C'+str(i)
+    ds_full_train[pred_name] = 0.
+    ds_full_test[pred_name] = 0.
+
+for ikey in range(len(class_names)):
+    train_x = ds_full_train[ds_full_train["class"] == ikey][variables]
     train_x = train_x.values
-    test_x = df_test[key][variables]
+    test_x = ds_full_test[ds_full_test["class"] == ikey][variables]
     test_x = test_x.values
-    
-    
+
+
     n_eval_train_steps = int(len(train_x)/eval_step_size) + 1
     last_eval_train_step = len(train_x)%eval_step_size
-    train_w_sum = train_w.sum()
     n_eval_test_steps = int(len(test_x)/eval_step_size) + 1
     last_eval_test_step = len(test_x)%eval_step_size
-    
+
     train_class_pred = []
-    for i_eval in range(n_eval_train_steps): 
+    for i_eval in range(n_eval_train_steps):
         if i_eval < n_eval_train_steps-1:
             eval_train_x = train_x[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
         else:
             eval_train_x = train_x[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_train_step]
-    
+
         if library == "keras":
             i_train_class_pred = class_model.predict(eval_train_x)
         elif library == "torch":
             i_train_class_pred = model_scripted(torch.FloatTensor(eval_train_x)).detach().numpy()
-        
+
         train_class_pred = train_class_pred + i_train_class_pred.tolist()
     train_class_pred = np.array(train_class_pred)
-    
+
     test_class_pred = []
-    for i_eval in range(n_eval_test_steps): 
+    for i_eval in range(n_eval_test_steps):
         if i_eval < n_eval_test_steps-1:
             eval_test_x = test_x[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
         else:
             eval_test_x = test_x[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_test_step]
-    
+
         if library == "keras":
             i_test_class_pred = class_model.predict(eval_test_x)
         elif library == "torch":
             i_test_class_pred = model_scripted(torch.FloatTensor(eval_test_x)).detach().numpy()
-        
+
         test_class_pred = test_class_pred + i_test_class_pred.tolist()
     test_class_pred = np.array(test_class_pred)
 
-    
+
     if model[N][4] == "cce":
         n_outputs = n_classes
         for i in range(n_outputs):
             pred_name = 'score_C'+str(i)
-            df_test[key][pred_name] = test_class_pred[:,i]
-            df_train[key][pred_name] = train_class_pred[:,i]
+            ds_full_test.loc[ds_full_test["class"] == ikey, pred_name] = test_class_pred[:,i]
+            ds_full_train.loc[ds_full_train["class"] == ikey, pred_name] = train_class_pred[:,i]
     if model[N][4] == "bce":
         n_outputs = 1
         pred_name = 'score_C0'
-        df_test[key][pred_name] = 1 - test_class_pred[:,0]
-        df_train[key][pred_name] = 1 - train_class_pred[:,0]
-    
+        ds_full_test.loc[ds_full_test["class"] == ikey, pred_name] = 1 - test_class_pred[:,0]
+        ds_full_train.loc[ds_full_train["class"] == ikey, pred_name] = 1 - train_class_pred[:,0]
+
 for i in range(n_outputs):
     fig1 = plt.figure(figsize=(20,7))
     gs1 = gs.GridSpec(1,1)
     #==================================================
-    ax1 = plt.subplot(gs1[0])            
+    ax1 = plt.subplot(gs1[0])
     #==================================================
     var = 'score_C'+str(i)
-    bins = np.linspace(0,1,21)
-    for key in df.keys():
-        step_plot( ax1, var, df_train[key], label=class_labels[key]+" (train)", color=colors[key], weight="mvaWeight", bins=bins, error=True )
-        step_plot( ax1, var, df_test[key], label=class_labels[key]+" (test)", color=colors[key], weight="mvaWeight", bins=bins, error=True, linestyle='dotted' )
+    bins = np.linspace(0,1,51)
+    for ikey in range(len(class_names)):
+        step_plot( ax1, var, ds_full_train[ds_full_train["class"] == ikey], label=class_labels[ikey]+" (train)", color=colors[ikey], weight="mvaWeight", bins=bins, error=True )
+        step_plot( ax1, var, ds_full_test[ds_full_test["class"] == ikey], label=class_labels[ikey]+" (test)", color=colors[ikey], weight="mvaWeight", bins=bins, error=True, linestyle='dotted' )
     ax1.set_xlabel(class_names[i] + " score", size=14, horizontalalignment='right', x=1.0)
     ax1.set_ylabel("Events normalized", size=14, horizontalalignment='right', y=1.0)
 
@@ -574,16 +460,16 @@ for i in range(n_outputs):
     ax1.spines['right'].set_linewidth(1)
     ax1.margins(x=0)
     ax1.legend(numpoints=1, ncol=1, prop={'size': 10.5}, frameon=False, loc='upper center')
-    
-    plt.savefig(os.path.join(model_outpath, var + ".png"))
-    
 
+    plt.savefig(os.path.join(model_outpath, var + ".png"))
+
+del ds_full_train, ds_full_test, class_names, class_labels, colors
 """
 fig1 = plt.figure(figsize=(18,5))
 grid = [1, 2]
 gs1 = gs.GridSpec(grid[0], grid[1])
 #==================================================
-ax1 = plt.subplot(gs1[0])            
+ax1 = plt.subplot(gs1[0])
 #==================================================
 var = 'score_C0'
 signal_train_roc = []
@@ -599,7 +485,7 @@ for key in df.keys():
     else:
         bkg_train_roc.append(df_train[key])
         bkg_test_roc.append(df_test[key])
-        
+
 ctr_train = func.control( var, signal_train_roc, bkg_train_roc, weight="evtWeight", bins=np.linspace(0,1,1001) )
 ctr_train.roc_plot(label='ROC (train)', color='blue', linestyle="-")
 ctr_test = func.control( var, signal_test_roc, bkg_test_roc, weight="evtWeight", bins=np.linspace(0,1,1001) )
@@ -621,8 +507,8 @@ ax1.legend(numpoints=1, ncol=1, prop={'size': 10.5}, frameon=False, loc='lower l
 
 plt.savefig(os.path.join(model_outpath, "ROC.png"))
 """
-  
-   
+
+
 #===============================================================================
 end = time.time()
 hours = int((end - start)/3600)
@@ -631,9 +517,8 @@ seconds = int(((end - start)%3600)%60)
 
 print("")
 print("-----------------------------------------------------------------------------------")
-print("Total process duration: " + str(hours) + " hours " + str(minutes) + " minutes " + str(seconds) + " seconds")  
+print("Total process duration: " + str(hours) + " hours " + str(minutes) + " minutes " + str(seconds) + " seconds")
 print("-----------------------------------------------------------------------------------")
 print("")
-
 
 

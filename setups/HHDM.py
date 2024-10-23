@@ -13,7 +13,7 @@ tag = "single"
 library = "torch"  # torch, keras
 NN_type = [ "NN" ]  # [ "NN", "DANN", "PNN" ]
 num_layers = [2, 3]
-num_nodes = [20, 30, 40, 50, 60]#, 50] #, 500, 1000, 2000, 5000 ]
+num_nodes = [20, 30, 40, 50]#, 50] #, 500, 1000, 2000, 5000 ]
 activation_func = [ "elu" ] # [ "elu", "relu", "tanh" ]
 optimizer = [ "adam" ] # [ "adam", "sgd" ]
 loss_func = [ "bce" ] # [ "bce", "cce" ]
@@ -24,6 +24,7 @@ learning_rate = [ 0.01 ]#, 0.1, 0.001 ]
 # Training setup
 #--------------------------------------------------------------------------------------------------
 batch_size = [ 1000 ]
+load_size = 500000
 train_frac = 0.5
 eval_step_size = 1000
 num_max_iterations = 2000

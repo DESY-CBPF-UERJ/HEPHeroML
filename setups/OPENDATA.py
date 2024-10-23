@@ -24,6 +24,7 @@ learning_rate = [ 0.01, 0.1 ]#, 0.001 ]
 # Training setup
 #--------------------------------------------------------------------------------------------------
 batch_size = [ 1000, 9000 ]
+load_size = 500000
 train_frac = 0.5
 eval_step_size = 1000
 num_max_iterations = 2000

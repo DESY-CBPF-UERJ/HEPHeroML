@@ -62,6 +62,7 @@ with open(trainer_name, "w") as newfile:
     newfile.write("# Training setup\n")
     newfile.write("#-------------------------------------------------------------------------------------\n")
     newfile.write("batch_size = " + str(sm.batch_size) +"\n")
+    newfile.write("load_size = " + str(sm.load_size) +"\n")
     newfile.write("train_frac = " + str(sm.train_frac) +"\n")
     newfile.write("eval_step_size = " + str(sm.eval_step_size) +"\n")
     newfile.write("num_max_iterations = " + str(sm.num_max_iterations) +"\n")
