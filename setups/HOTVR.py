@@ -1,10 +1,10 @@
 #--------------------------------------------------------------------------------------------------
 # General Setup
 #--------------------------------------------------------------------------------------------------
-analysis = "HHDM"
-selection = "ML"
-periods = ['APV_16', '16', '17', '18']
-tag = "single"
+analysis = "HOTVR_ML_R3"
+selection = "Skimming"
+periods = ['0_22']
+tag = "Test"
 
 
 #--------------------------------------------------------------------------------------------------
@@ -13,7 +13,7 @@ tag = "single"
 library = "torch"  # torch, keras
 NN_type = [ "NN" ]  # [ "NN", "DANN", "PNN" ]
 num_layers = [2, 3]
-num_nodes = [20, 30, 40, 50]#, 50] #, 500, 1000, 2000, 5000 ]
+num_nodes = [20, 30, 40, 50, 60]#, 50] #, 500, 1000, 2000, 5000 ]
 activation_func = [ "elu" ] # [ "elu", "relu", "tanh" ]
 optimizer = [ "adam" ] # [ "adam", "sgd" ]
 loss_func = [ "bce" ] # [ "bce", "cce" ]
@@ -24,10 +24,10 @@ learning_rate = [ 0.01 ]#, 0.1, 0.001 ]
 # Training setup
 #--------------------------------------------------------------------------------------------------
 batch_size = [ 1000 ]
-load_size = 500000
+load_size = 50000
 train_frac = 0.5
 eval_step_size = 1000
-num_max_iterations = 2000
+num_max_iterations = 11000
 early_stopping = 20
 
 
@@ -38,15 +38,15 @@ input_mode = "normal" #"parameterized"
 feature_info = False
 
 input_variables = [
-    ["LeadingLep_pt",           r"$\mathrm{leading}\,p_\mathrm{T}^\mathrm{l}$"],
-    ["TrailingLep_pt",          r"$\mathrm{trailing}\,p_\mathrm{T}^\mathrm{l}$"],
-    ["LepLep_pt",               r"$p_\mathrm{T}^\mathrm{ll}$"],
-    ["LepLep_deltaR",           r"$\Delta R^\mathrm{ll}$"],
-    ["LepLep_deltaM",           r"$\Delta M^\mathrm{ll}$"],
-    ["MET_pt",                  r"$E_\mathrm{T}^\mathrm{miss}$"],
-    ["MET_LepLep_Mt",           r"$M_\mathrm{T}^\mathrm{ll,MET}$"],
-    ["MET_LepLep_deltaPhi",     r"$\Delta \phi^\mathrm{ll,MET}$"],
-    ["MT2LL",                   r"$M_\mathrm{T2}^\mathrm{ll}$"],
+    ["jet_pt",           "Jet_pt"],
+    ["jet_eta",          "Jet_eta"],
+    ["jet_mass",         "Jet_mass"],
+    #["LepLep_deltaR",           r"$\Delta R^\mathrm{ll}$"],
+    #["LepLep_deltaM",           r"$\Delta M^\mathrm{ll}$"],
+    #["MET_pt",                  r"$E_\mathrm{T}^\mathrm{miss}$"],
+    #["MET_LepLep_Mt",           r"$M_\mathrm{T}^\mathrm{ll,MET}$"],
+    #["MET_LepLep_deltaPhi",     r"$\Delta \phi^\mathrm{ll,MET}$"],
+    #["MT2LL",                   r"$M_\mathrm{T2}^\mathrm{ll}$"],
     #["Nbjets",                  r"$N_\mathrm{b\,jets}$"],
     #["Njets_forward",           r"Njets_forward"],
     #["Dijet_deltaEta",          r"$\Delta\eta^\mathrm{jj}$"],
@@ -58,7 +58,13 @@ input_variables = [
     #["FMax30",                  r"FMax30"],
     ]
 
-reweight_variables = []
+reweight_variables = [
+    ["jet_pt",      [200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000, 99999999.]],
+    #["jet_mass",    [-99999999., -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 99999999.]],
+    ]
+
+#jet_pt: [15, 20, 26, 35, 46, 61, 80, 106, 141, 186, 247, 326, 432, 571, 756, 1000]
+#jet_abseta: [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.7]
 
 input_parameters = [
     ["m_H", r"$m_H$"],
@@ -71,74 +77,18 @@ input_parameters = [
 #--------------------------------------------------------------------------------------------------
 classes = {
 #<class_name>: [[<list_of_processes>], <mode>, <combination>, <label>, <color>]
-"Signal_samples": [[
-    "Signal_1000_100",
-    "Signal_1000_200",
-    "Signal_1000_300",
-    "Signal_1000_400",
-    "Signal_1000_600",
-    "Signal_1000_800",
-    "Signal_400_100",
-    "Signal_400_200",
-    "Signal_500_100",
-    "Signal_500_200",
-    "Signal_500_300",
-    "Signal_600_100",
-    "Signal_600_200",
-    "Signal_600_300",
-    "Signal_600_400",
-    "Signal_800_100",
-    "Signal_800_200",
-    "Signal_800_300",
-    "Signal_800_400",
-    "Signal_800_600",
-    #"Signal_1400_100",
-    #"Signal_1400_400",
-    #"Signal_1400_600",
-    #"Signal_1400_1000",
-    #"Signal_1400_1200",
-    #"Signal_2000_100",
-    #"Signal_2000_400",
-    #"Signal_2000_600",
-    #"Signal_2000_1000",
-    #"Signal_2000_1200",
-    #"Signal_2000_1800",
+"Signal_sample": [[
+    "Zto2Q_PTQQ-100to200",
+    "Zto2Q_PTQQ-200to400",
+    "Zto2Q_PTQQ-400to600",
+    "Zto2Q_PTQQ-600"
     ], "normal", "flat", "Signal", "green"],
 "Background": [[
-    "DYJetsToLL_Pt-0To3",
-    "DYJetsToLL_PtZ-3To50",
-    "DYJetsToLL_PtZ-50To100",
-    "DYJetsToLL_PtZ-100To250",
-    "DYJetsToLL_PtZ-250To400",
-    "DYJetsToLL_PtZ-400To650",
-    "DYJetsToLL_PtZ-650ToInf",
-    "TTTo2L2Nu",
-    "TTToSemiLeptonic",
-    "ST_tW_antitop",
-    "ST_tW_top",
-    "ST_s-channel",
-    "ST_t-channel_top",
-    "ST_t-channel_antitop",
-    "WZTo3LNu",
-    "ZZTo4L",
-    "ZZTo2L2Nu",
-    "WZZ",
-    "WWZ",
-    "ZZZ",
-    "WWW",
-    "TTWZ",
-    "TTZZ",
-    "TTWW",
-    "TTWJetsToLNu",
-    "TTWJetsToQQ",
-    "TTZToQQ",
-    "TTZToLL",
-    "TTZToNuNu",
-    "tZq_ll",
-    "WWTo2L2Nu",
-    "WZTo2Q2L",
-    "ZZTo2Q2L",
-    ], "normal", "xsec", "Background", "red"],
+    "QCD_PT-120to170",
+    "QCD_PT-470to600",
+    "QCD_PT-1000to1400",
+    "QCD_PT-2400to3200"
+    ], "normal", "flat", "Background", "red"],
 }
 
 

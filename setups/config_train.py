@@ -13,9 +13,9 @@ parser.set_defaults(clean_flag=False)
 args = parser.parse_args()
 
 
-outpath = "/home/gilson/cernbox/HEP/ANALYSIS"
-outpath_base = os.path.join(outpath, analysis, selection, "datasets")
-
+#outpath = "/home/gilson/cernbox/HEP/ANALYSIS"
+#outpath_base = os.path.join(outpath, analysis, selection, "datasets")
+outpath_base = "/home/gilson/datasets"
 
 #===============================================================================
 # CHECK ARGUMENT
@@ -131,7 +131,7 @@ print("Preprocessing input data...")
 seed = 16
 
 
-ds_full_train, ds_full_test, class_names, class_labels, colors = get_sample(outpath_base, model[N][7], classes, N_signal, train_frac, load_size, 0, features=variables+["evtWeight"])
+ds_full_train, ds_full_test, class_names, class_labels, colors = get_sample(outpath_base, model[N][7], classes, N_signal, train_frac, load_size, 0, features=variables+["evtWeight"], reweight_info=reweight_variables)
 
 
 n_classes = len(classes)
@@ -227,6 +227,8 @@ class_model, iteration, train_acc, test_acc, train_loss, test_loss, adv_source_a
     stat_values = stat_values,
     eval_step_size = eval_step_size,
     feature_info = feature_info,
+    reweight_variables=reweight_variables,
+    early_stopping=early_stopping,
     )
 
 
@@ -356,7 +358,7 @@ plt.savefig(os.path.join(model_outpath, "training.png"))
 #===============================================================================
 # CHECK OVERTRAINING
 #===============================================================================
-ds_full_train, ds_full_test, class_names, class_labels, colors = get_sample(outpath_base, model[N][7], classes, N_signal, train_frac, load_size, 0, features=variables+["evtWeight"])
+ds_full_train, ds_full_test, class_names, class_labels, colors = get_sample(outpath_base, model[N][7], classes, N_signal, train_frac, load_size, 0, features=variables+["evtWeight"], reweight_info=reweight_variables)
 
 for i in range(n_classes):
     pred_name = 'score_C'+str(i)

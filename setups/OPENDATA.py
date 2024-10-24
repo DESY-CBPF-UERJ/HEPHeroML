@@ -28,6 +28,7 @@ load_size = 500000
 train_frac = 0.5
 eval_step_size = 1000
 num_max_iterations = 2000
+early_stopping = 20
 
 
 #--------------------------------------------------------------------------------------------------
@@ -56,6 +57,8 @@ input_variables = [
     #["LeadingJet_TauH_dr",      r"LeadingJet_TauH_dr"],
     ["LeadingJet_TauHMuonL_dr", r"$\Delta R((\mu,\tau_h),\mathrm{Jet}_L)$"],
     ]
+
+reweight_variables = []
 
 input_parameters = [
     ["m_H", r"$m_H$"],
@@ -139,4 +142,4 @@ classes = {
 
 # If two or more class names start with "Signal_samples", the signal points from these classes are paired together during the loop
 
-
+# The code support a maximum of 2 reweight variables

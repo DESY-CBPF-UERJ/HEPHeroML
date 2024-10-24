@@ -37,7 +37,7 @@ import torch.nn as nn
 """
 
 #=====================================================================================================================
-def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_it, features=[]):
+def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_it, features=[], reweight_info=[]):
 
     class_names = []
     class_labels = []
@@ -193,45 +193,48 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
                     break
                 ikey += 1
 
-
-            dataset = datasets[class_name].sample(frac=1, random_state=seed)
+            n_entries = len(datasets[class_name]['evtWeight'])
+            if mode == "normal":
+                dataset = datasets[class_name].sample(frac=1, random_state=seed)
+            else:
+                p_idx = np.random.permutation(n_entries)
+                dataset = {}
+                for variable in datasets[class_name].keys():
+                    dataset[variable] = datasets[class_name][variable][p_idx]
+                    datasets[class_name][variable] = 0
             del datasets
-            dataset = dataset.reset_index(drop=True)
-            dataset["class"] = ikey
+            #dataset = dataset.reset_index(drop=True)
+            dataset["class"] = np.ones(n_entries)*ikey
             dataset['mvaWeight'] = dataset['evtWeight']/dataset['evtWeight'].sum()
 
 
             #==========================================================================
 
-            #jet_pt: [15, 20, 26, 35, 46, 61, 80, 106, 141, 186, 247, 326, 432, 571, 756, 1000]
-            #jet_abseta: [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.7]
-            #jet_pt: [200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000, 99999999.]
-            #jet_abseta: [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 99999999.]
+            reweight_vars = [reweight_info[i][0] for i in range(len(reweight_info))]
+            reweight_limits = [reweight_info[i][1] for i in range(len(reweight_info))]
 
-            """
-            split1 = [200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000, 1200, 1400, 1700, 99999999.]
-            var1 = 'jet_pt'
-            for j in range(len(split1)-1):
-                bin_Wsum = dataset[((dataset[var1] >= split1[j]) & (dataset[var1] < split1[j+1]))]['mvaWeight'].sum()
-                fac = 1/bin_Wsum
-                if math.isnan(fac):
-                    fac = 1
-                dataset.loc[((dataset[var1] >= split1[j]) & (dataset[var1] < split1[j+1])), 'mvaWeight'] = dataset[((dataset[var1] >= split1[j]) & (dataset[var1] < split1[j+1]))]['mvaWeight']*fac
-            """
-
-            """
-            split2 = [-99999999., -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 99999999.]
-            var2 = 'jet_eta'
-            split1 = [200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000, 99999999.]
-            var1 = 'jet_pt'
-            for j in range(len(split1)-1):
-                for i in range(len(split2)-1):
-                    bin_Wsum = dataset[((dataset[var1] >= split1[j]) & (dataset[var1] < split1[j+1])) & ((dataset[var2] >= split2[i]) & (dataset[var2] < split2[i+1]))]['mvaWeight'].sum()
+            if len(reweight_vars) == 1:
+                split1 = reweight_limits[0]
+                var1 = reweight_vars[0]
+                for j in range(len(split1)-1):
+                    bin_Wsum = dataset[((dataset[var1] >= split1[j]) & (dataset[var1] < split1[j+1]))]['mvaWeight'].sum()
                     fac = 1/bin_Wsum
                     if math.isnan(fac):
                         fac = 1
-                    dataset.loc[((dataset[var1] >= split1[j]) & (dataset[var1] < split1[j+1])) & ((dataset[var2] >= split2[i]) & (dataset[var2] < split2[i+1])), 'mvaWeight'] = dataset[((dataset[var1] >= split1[j]) & (dataset[var1] < split1[j+1])) & ((dataset[var2] >= split2[i]) & (dataset[var2] < split2[i+1]))]['mvaWeight']*fac
-            """
+                    dataset.loc[((dataset[var1] >= split1[j]) & (dataset[var1] < split1[j+1])), 'mvaWeight'] = dataset[((dataset[var1] >= split1[j]) & (dataset[var1] < split1[j+1]))]['mvaWeight']*fac
+
+            elif len(reweight_vars) >= 2:
+                split1 = reweight_limits[0]
+                var1 = reweight_vars[0]
+                split2 = reweight_limits[1]
+                var2 = reweight_vars[1]
+                for j in range(len(split1)-1):
+                    for i in range(len(split2)-1):
+                        bin_Wsum = dataset[((dataset[var1] >= split1[j]) & (dataset[var1] < split1[j+1])) & ((dataset[var2] >= split2[i]) & (dataset[var2] < split2[i+1]))]['mvaWeight'].sum()
+                        fac = 1/bin_Wsum
+                        if math.isnan(fac):
+                            fac = 1
+                        dataset.loc[((dataset[var1] >= split1[j]) & (dataset[var1] < split1[j+1])) & ((dataset[var2] >= split2[i]) & (dataset[var2] < split2[i+1])), 'mvaWeight'] = dataset[((dataset[var1] >= split1[j]) & (dataset[var1] < split1[j+1])) & ((dataset[var2] >= split2[i]) & (dataset[var2] < split2[i+1]))]['mvaWeight']*fac
 
             dataset['mvaWeight'] = dataset['mvaWeight']/dataset['mvaWeight'].sum()
 
@@ -251,8 +254,14 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
             ds_full_test = dataset_test.copy()
             control = False
         else:
-            ds_full_train = pd.concat([ds_full_train, dataset_train])
-            ds_full_test = pd.concat([ds_full_test, dataset_test])
+            print(ds_full_train.keys())
+            if mode == "normal":
+                ds_full_train = pd.concat([ds_full_train, dataset_train])
+                ds_full_test = pd.concat([ds_full_test, dataset_test])
+            else:
+                for variable in ds_full_train.keys():
+                    ds_full_train[variable] = np.concatenate((ds_full_train[variable], dataset_train[variable]), axis=0)
+                    ds_full_test[variable] = np.concatenate((ds_full_test[variable], dataset_test[variable]), axis=0)
 
     del dataset_train, dataset_test
 
@@ -266,7 +275,10 @@ def join_datasets(ds, new_name, input_list, mode="normal", combination="xsec", d
     for input_name in input_list:
         if len(ds[input_name]["evtWeight"]) > 0:
             if combination == "flat":
-                ds[input_name].loc[:,"evtWeight"] = ds[input_name]["evtWeight"]/ds[input_name]["evtWeight"].sum()
+                if mode == "normal":
+                    ds[input_name].loc[:,"evtWeight"] = ds[input_name]["evtWeight"]/ds[input_name]["evtWeight"].sum()
+                else:
+                    ds[input_name]["evtWeight"] = ds[input_name]["evtWeight"]/ds[input_name]["evtWeight"].sum()
             datasets_list.append(ds[input_name])
 
     good_list = False
@@ -684,7 +696,7 @@ def batch_generator(data, batch_size):
 
 
 #=====================================================================================================================
-def train_model(outpath_base, N_signal, train_frac, load_size, parameters, variables, classes, n_iterations = 5000, signal_param = None, mode = "keras", stat_values = None, eval_step_size = 0.2, feature_info = False):
+def train_model(outpath_base, N_signal, train_frac, load_size, parameters, variables, classes, n_iterations = 5000, signal_param = None, mode = "keras", stat_values = None, eval_step_size = 0.2, feature_info = False, reweight_variables=[], early_stopping=300):
 
 
     n_var = len(variables)
@@ -773,11 +785,12 @@ def train_model(outpath_base, N_signal, train_frac, load_size, parameters, varia
                 # Load Datasets
 
                 if (load_it == 0) or (period_count == waiting_period):
-                    ds_full_train, ds_full_test, class_names, class_labels, colors = get_sample(outpath_base, parameters[7], classes, N_signal, train_frac, load_size, load_it, features=variables+["evtWeight"])
+                    ds_full_train, ds_full_test, class_names, class_labels, colors = get_sample(outpath_base, parameters[7], classes, N_signal, train_frac, load_size, load_it, features=variables+["evtWeight"], reweight_info=reweight_variables)
                     load_it += 1
                     waiting_period = int(len(ds_full_train)/batch_size)
                     period_count = 0
 
+                    ds_full_train = pd.DataFrame.from_dict(ds_full_train)
                     ds_full_train = ds_full_train.sample(frac=1, random_state=seed)
                     train_x = ds_full_train[variables]
                     train_x = train_x.values
@@ -787,6 +800,7 @@ def train_model(outpath_base, N_signal, train_frac, load_size, parameters, varia
                     print("Labels shape = " + str(train_y.shape))
                     print("Weights shape = " + str(train_w.shape))
 
+                    ds_full_test = pd.DataFrame.from_dict(ds_full_test)
                     ds_full_test = ds_full_test.sample(frac=1, random_state=seed)
                     test_x = ds_full_test[variables]
                     test_x = test_x.values
@@ -863,7 +877,7 @@ def train_model(outpath_base, N_signal, train_frac, load_size, parameters, varia
                 optimizer.zero_grad()
 
                 #if False:
-                if ((i + 1) % 10 == 0):
+                if ((i + 1) % 100 == 0):
 
                     #print("Evaluating!!!")
                     #eval_train_x, eval_train_y, eval_train_w = next(eval_train_batches)
@@ -954,7 +968,7 @@ def train_model(outpath_base, N_signal, train_frac, load_size, parameters, varia
 
                     print("Iterations %d, class loss =  %.10f, class accuracy =  %.3f"%(i+1, test_loss_i, test_acc_i ))
 
-                    if early_stopping_count == 30:
+                    if early_stopping_count == early_stopping:
                         print("Early stopping activated!")
                         break
 
