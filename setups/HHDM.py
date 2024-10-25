@@ -37,7 +37,7 @@ early_stopping = 20
 input_mode = "normal" #"parameterized"
 feature_info = False
 
-input_variables = [
+scalar_variables = [
     ["LeadingLep_pt",           r"$\mathrm{leading}\,p_\mathrm{T}^\mathrm{l}$"],
     ["TrailingLep_pt",          r"$\mathrm{trailing}\,p_\mathrm{T}^\mathrm{l}$"],
     ["LepLep_pt",               r"$p_\mathrm{T}^\mathrm{ll}$"],
@@ -57,6 +57,8 @@ input_variables = [
     #["OmegaMin30",              r"OmegaMin30"],
     #["FMax30",                  r"FMax30"],
     ]
+
+vector_variables = []
 
 reweight_variables = []
 

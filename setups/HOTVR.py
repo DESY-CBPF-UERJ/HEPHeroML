@@ -37,7 +37,7 @@ early_stopping = 20
 input_mode = "normal" #"parameterized"
 feature_info = False
 
-input_variables = [
+scalar_variables = [
     ["jet_pt",           "Jet_pt"],
     ["jet_eta",          "Jet_eta"],
     ["jet_mass",         "Jet_mass"],
@@ -58,6 +58,35 @@ input_variables = [
     #["FMax30",                  r"FMax30"],
     ]
 
+vector_variables = [
+    #["jet_pfcand_abseta",       "jet_pfcand_abseta"],
+    ["jet_pfcand_pt_log",       "jet_pfcand_pt_log"],
+    ["jet_pfcand_energy_log",   "jet_pfcand_energy_log"],
+    #["jet_pfcand_dxy",          "jet_pfcand_dxy"],
+    #["jet_pfcand_dxysig",       "jet_pfcand_dxysig"],
+    #["jet_pfcand_dz",           "jet_pfcand_dz"],
+    #["jet_pfcand_dzsig",        "jet_pfcand_dzsig"],
+    ["jet_pfcand_deta",         "jet_pfcand_deta"],
+    ["jet_pfcand_dphi",         "jet_pfcand_dphi"],
+    #["jet_pfcand_frompv",       "jet_pfcand_frompv"],
+    #["jet_pfcand_charge",       "jet_pfcand_charge"],
+    #["jet_pfcand_track_qual",   "jet_pfcand_track_qual"],
+    #["jet_pfcand_track_chi2",   "jet_pfcand_track_chi2"],
+    #["jet_pfcand_nhits",        "jet_pfcand_nhits"],
+    #["jet_pfcand_nlosthits",    "jet_pfcand_nlosthits"],
+    ["jet_sv_pt_log",           "jet_sv_pt_log"],
+    #["jet_sv_abseta",           "jet_sv_abseta"],
+    ["jet_sv_mass",             "jet_sv_mass"],
+    ["jet_sv_deta",             "jet_sv_deta"],
+    ["jet_sv_dphi",             "jet_sv_dphi"],
+    #["jet_sv_chi2",             "jet_sv_chi2"],
+    #["jet_sv_dxy",              "jet_sv_dxy"],
+    #["jet_sv_dxysig",           "jet_sv_dxysig"],
+    #["jet_sv_d3d",              "jet_sv_d3d"],
+    #["jet_sv_d3dsig",           "jet_sv_d3dsig"],
+    #["jet_sv_ntrack",           "jet_sv_ntrack"],
+    ]
+
 reweight_variables = [
     ["jet_pt",      [200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950, 1000, 99999999.]],
     #["jet_mass",    [-99999999., -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 99999999.]],
@@ -65,6 +94,7 @@ reweight_variables = [
 
 #jet_pt: [15, 20, 26, 35, 46, 61, 80, 106, 141, 186, 247, 326, 432, 571, 756, 1000]
 #jet_abseta: [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.7]
+
 
 input_parameters = [
     ["m_H", r"$m_H$"],
@@ -82,13 +112,13 @@ classes = {
     "Zto2Q_PTQQ-200to400",
     "Zto2Q_PTQQ-400to600",
     "Zto2Q_PTQQ-600"
-    ], "normal", "flat", "Signal", "green"],
+    ], "scalars", "flat", "Signal", "green"],
 "Background": [[
     "QCD_PT-120to170",
     "QCD_PT-470to600",
     "QCD_PT-1000to1400",
     "QCD_PT-2400to3200"
-    ], "normal", "flat", "Background", "red"],
+    ], "scalars", "flat", "Background", "red"],
 }
 
 

@@ -37,7 +37,7 @@ import torch.nn as nn
 """
 
 #=====================================================================================================================
-def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_it, features=[], reweight_info=[]):
+def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_it, features=[], vec_features=[], reweight_info=[]):
 
     class_names = []
     class_labels = []
@@ -121,45 +121,44 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
 
         for it in range(2):
             datasets = {}
+            datasets_vec = {}
             ids = 0
             for dataset, abspath in tqdm(datasets_abspath):
                 dataset_name = dataset.split(".")[0]
 
                 if dataset.endswith(".h5") and dataset_name in input_list:
 
-                    if mode == "normal" or mode == "scalars":
-                        variables_dict = {}
-                        with h5py.File(abspath) as f:
-                            if "scalars" in f.keys():
-                                group = "scalars"
-                                for variable in f[group].keys():
-                                    if len(features) == 0 or variable in features:
-                                        if it == 0:
-                                            variables_dict[variable] = np.array(f[group+"/"+variable])[datasets_train_limits[ids][0]:datasets_train_limits[ids][1]]
-                                        elif it == 1:
-                                            variables_dict[variable] = np.array(f[group+"/"+variable])[datasets_test_limits[ids][0]:datasets_test_limits[ids][1]]
-                                if mode == "normal":
-                                    datasets[dataset_name] = pd.DataFrame(variables_dict)
-                                if mode == "scalars":
-                                    datasets[dataset_name] = variables_dict
-                            else:
-                                print("Warning: Dataset " + dataset_name + " is empty!")
 
-                    if mode == "vectors":
+                    variables_dict = {}
+                    with h5py.File(abspath) as f:
+                        if "scalars" in f.keys():
+                            group = "scalars"
+                            for variable in f[group].keys():
+                                if len(features) == 0 or variable in features:
+                                    if it == 0:
+                                        variables_dict[variable] = np.array(f[group+"/"+variable])[datasets_train_limits[ids][0]:datasets_train_limits[ids][1]]
+                                    elif it == 1:
+                                        variables_dict[variable] = np.array(f[group+"/"+variable])[datasets_test_limits[ids][0]:datasets_test_limits[ids][1]]
+                            datasets[dataset_name] = variables_dict
+                        else:
+                            print("Warning: Dataset " + dataset_name + " is empty!")
+
+                    if len(vec_features) > 0:
                         variables_dict = {}
                         with h5py.File(abspath) as f:
                             if "vectors" in f.keys():
                                 group = "vectors"
                                 for variable in f[group].keys():
-                                    if len(features) == 0 or variable in features:
+                                    if variable in vec_features:
                                         if it == 0:
                                             variables_dict[variable] = np.array(f[group+"/"+variable])[datasets_train_limits[ids][0]:datasets_train_limits[ids][1]]
                                         elif it == 1:
                                             variables_dict[variable] = np.array(f[group+"/"+variable])[datasets_test_limits[ids][0]:datasets_test_limits[ids][1]]
-                                datasets[dataset_name] = variables_dict
+                                datasets_vec[dataset_name] = variables_dict
                             else:
                                 print("Warning: Dataset " + dataset_name + " is empty!")
 
+                    """
                     if mode == "metadata":
                         variables_dict = {}
                         with h5py.File(abspath) as f:
@@ -171,6 +170,7 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
                                     if variable in features:
                                         variables_dict[variable] = np.array(f[group+"/"+variable])
                             datasets[dataset_name] = variables_dict
+                    """
 
                     if len(datasets[dataset_name]["evtWeight"]) > 0:
                         if combination == "flat":
@@ -184,7 +184,8 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
             #==========================================================================
 
             if len(input_list) > 1:
-                join_datasets(datasets, class_name, input_list, mode=mode, combination=combination)
+                join_datasets(datasets, class_name, input_list, mode="scalars", combination=combination)
+                join_datasets(datasets_vec, class_name, input_list, mode="vectors", combination=combination)
             #==========================================================================
 
             ikey = 0
@@ -194,19 +195,22 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
                 ikey += 1
 
             n_entries = len(datasets[class_name]['evtWeight'])
-            if mode == "normal":
-                dataset = datasets[class_name].sample(frac=1, random_state=seed)
-            else:
-                p_idx = np.random.permutation(n_entries)
-                dataset = {}
-                for variable in datasets[class_name].keys():
-                    dataset[variable] = datasets[class_name][variable][p_idx]
-                    datasets[class_name][variable] = 0
+            p_idx = np.random.permutation(n_entries)
+
+            dataset = {}
+            for variable in datasets[class_name].keys():
+                dataset[variable] = datasets[class_name][variable][p_idx]
+                datasets[class_name][variable] = 0
             del datasets
-            #dataset = dataset.reset_index(drop=True)
+
             dataset["class"] = np.ones(n_entries)*ikey
             dataset['mvaWeight'] = dataset['evtWeight']/dataset['evtWeight'].sum()
 
+            dataset_vec = {}
+            for variable in datasets_vec[class_name].keys():
+                dataset_vec[variable] = datasets_vec[class_name][variable][p_idx]
+                datasets_vec[class_name][variable] = 0
+            del datasets_vec
 
             #==========================================================================
 
@@ -241,9 +245,11 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
             #==========================================================================
             if it == 0:
                 dataset_train = dataset.copy()
+                dataset_vec_train = dataset_vec.copy()
             elif it == 1:
                 dataset_test = dataset.copy()
-            del dataset
+                dataset_vec_test = dataset_vec.copy()
+            del dataset, dataset_vec
 
         class_names.append(class_name)
         class_labels.append(class_label)
@@ -252,24 +258,23 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
         if control:
             ds_full_train = dataset_train.copy()
             ds_full_test = dataset_test.copy()
+            vec_full_train = dataset_vec_train.copy()
+            vec_full_test = dataset_vec_test.copy()
             control = False
         else:
-            print(ds_full_train.keys())
-            if mode == "normal":
-                ds_full_train = pd.concat([ds_full_train, dataset_train])
-                ds_full_test = pd.concat([ds_full_test, dataset_test])
-            else:
-                for variable in ds_full_train.keys():
-                    ds_full_train[variable] = np.concatenate((ds_full_train[variable], dataset_train[variable]), axis=0)
-                    ds_full_test[variable] = np.concatenate((ds_full_test[variable], dataset_test[variable]), axis=0)
+            for variable in ds_full_train.keys():
+                ds_full_train[variable] = np.concatenate((ds_full_train[variable], dataset_train[variable]), axis=0)
+                ds_full_test[variable] = np.concatenate((ds_full_test[variable], dataset_test[variable]), axis=0)
+                vec_full_train[variable] = np.concatenate((vec_full_train[variable], dataset_vec_train[variable]), axis=0)
+                vec_full_test[variable] = np.concatenate((vec_full_test[variable], dataset_vec_test[variable]), axis=0)
 
-    del dataset_train, dataset_test
+    del dataset_train, dataset_test, dataset_vec_train, dataset_vec_test
 
-    return ds_full_train, ds_full_test, class_names, class_labels, class_colors
+    return ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors
 
 
 #=====================================================================================================================
-def join_datasets(ds, new_name, input_list, mode="normal", combination="xsec", delete_inputs=True):
+def join_datasets(ds, new_name, input_list, mode="scalars", combination="xsec", delete_inputs=True):
 
     datasets_list = []
     for input_name in input_list:
@@ -785,7 +790,7 @@ def train_model(outpath_base, N_signal, train_frac, load_size, parameters, varia
                 # Load Datasets
 
                 if (load_it == 0) or (period_count == waiting_period):
-                    ds_full_train, ds_full_test, class_names, class_labels, colors = get_sample(outpath_base, parameters[7], classes, N_signal, train_frac, load_size, load_it, features=variables+["evtWeight"], reweight_info=reweight_variables)
+                    ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, colors = get_sample(outpath_base, parameters[7], classes, N_signal, train_frac, load_size, load_it, features=variables+["evtWeight"], vec_features=vec_variables, reweight_info=reweight_variables)
                     load_it += 1
                     waiting_period = int(len(ds_full_train)/batch_size)
                     period_count = 0

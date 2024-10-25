@@ -37,7 +37,7 @@ early_stopping = 20
 input_mode = "normal" #"parameterized"
 feature_info = False
 
-input_variables = [
+scalar_variables = [
     ["MuonL_pt",                r"$p_\mathrm{T}(\mu)$"],
     ["MET_pt",                  r"$p_\mathrm{T}^\mathrm{miss}$"],
     #["HT30",                    r"HT30"],
@@ -57,6 +57,8 @@ input_variables = [
     #["LeadingJet_TauH_dr",      r"LeadingJet_TauH_dr"],
     ["LeadingJet_TauHMuonL_dr", r"$\Delta R((\mu,\tau_h),\mathrm{Jet}_L)$"],
     ]
+
+vector_variables = []
 
 reweight_variables = []
 

@@ -104,8 +104,11 @@ print('Results will be stored in ' + ml_outpath)
 import torch
 
 
-variables = [input_variables[i][0] for i in range(len(input_variables))]
-var_names = [input_variables[i][1] for i in range(len(input_variables))]
+variables = [scalar_variables[i][0] for i in range(len(scalar_variables))]
+var_names = [scalar_variables[i][1] for i in range(len(scalar_variables))]
+
+vec_variables = [vector_variables[i][0] for i in range(len(vector_variables))]
+vec_var_names = [vector_variables[i][1] for i in range(len(vector_variables))]
 
 signal_parameters = [input_parameters[i][0] for i in range(len(input_parameters))]
 signal_parameters_names = [input_parameters[i][1] for i in range(len(input_parameters))]
@@ -131,7 +134,10 @@ print("Preprocessing input data...")
 seed = 16
 
 
-ds_full_train, ds_full_test, class_names, class_labels, colors = get_sample(outpath_base, model[N][7], classes, N_signal, train_frac, load_size, 0, features=variables+["evtWeight"], reweight_info=reweight_variables)
+ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, colors = get_sample(outpath_base, model[N][7], classes, N_signal, train_frac, load_size, 0, features=variables+["evtWeight"], vec_features=vec_variables, reweight_info=reweight_variables)
+
+ds_full_train = pd.DataFrame.from_dict(ds_full_train)
+ds_full_test = pd.DataFrame.from_dict(ds_full_test)
 
 
 n_classes = len(classes)
@@ -358,7 +364,10 @@ plt.savefig(os.path.join(model_outpath, "training.png"))
 #===============================================================================
 # CHECK OVERTRAINING
 #===============================================================================
-ds_full_train, ds_full_test, class_names, class_labels, colors = get_sample(outpath_base, model[N][7], classes, N_signal, train_frac, load_size, 0, features=variables+["evtWeight"], reweight_info=reweight_variables)
+ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, colors = get_sample(outpath_base, model[N][7], classes, N_signal, train_frac, load_size, 0, features=variables+["evtWeight"], vec_features=vec_variables, reweight_info=reweight_variables)
+
+ds_full_train = pd.DataFrame.from_dict(ds_full_train)
+ds_full_test = pd.DataFrame.from_dict(ds_full_test)
 
 for i in range(n_classes):
     pred_name = 'score_C'+str(i)
