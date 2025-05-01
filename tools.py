@@ -197,7 +197,6 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
             #for dataset, abspath in tqdm(datasets_abspath):
             for dataset, abspath in datasets_abspath:
                 dataset_name = dataset.split(".")[0]
-
                 if dataset.endswith(".h5") and dataset_name in input_list:
 
                     # Getting % usage of virtual_memory ( 3rd field)
@@ -1125,9 +1124,5 @@ def save_model(model_type, model, model_outpath, dim, device):
         save_PNN(model, model_outpath, dim, device)
     elif model_type == "PNET":
         save_PNET(model, model_outpath, dim, device)
-
-
-
-
 
 

@@ -181,7 +181,7 @@ def features_stat_PNN(train_data, test_data, variables, var_names, var_use, clas
         ax1 = plt.subplot(gs1[0])
         #==================================================
         var = variables[ivar]
-        bins = np.linspace(mean[ivar]-5*std[ivar],mean[ivar]+5*std[ivar],101)
+        bins = np.linspace(mean[ivar]-2.5*std[ivar],mean[ivar]+2.5*std[ivar],51)
         for ikey in range(len(class_names)):
             tools.step_plot( ax1, var, train_data[train_data["class"] == ikey], label=class_labels[ikey]+" (train)", color=class_colors[ikey], weight="mvaWeight", bins=bins, error=True )
             tools.step_plot( ax1, var, test_data[test_data["class"] == ikey], label=class_labels[ikey]+" (test)", color=class_colors[ikey], weight="mvaWeight", bins=bins, error=True, linestyle='dotted' )

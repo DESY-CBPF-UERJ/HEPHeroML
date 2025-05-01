@@ -136,7 +136,7 @@ def features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec
                 ax1 = plt.subplot(gs1[0])
                 #==================================================
                 var = vec_variables[ivar]
-                bins = np.linspace(vec_mean[k][kvar]-5*vec_std[k][kvar],vec_mean[k][kvar]+5*vec_std[k][kvar],101)
+                bins = np.linspace(vec_mean[k][kvar]-2.5*vec_std[k][kvar],vec_mean[k][kvar]+2.5*vec_std[k][kvar],51)
                 for ikey in range(len(class_names)):
 
                     data_var = {vec_variables[ivar]: vec_train_data[vec_variables[ivar]], 'mvaWeight': ((np.ones(vec_train_shapes[k]).T*np.array(train_data["mvaWeight"])).T).flatten(), 'class': ((np.ones(vec_train_shapes[k]).T*np.array(train_data["class"])).T).flatten(), 'mask': ds_mask_train[k]}
