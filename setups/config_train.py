@@ -1,7 +1,5 @@
-
-
-#-------------------------------------------------------------------------------
-# [DO NOT TOUCH THIS PART] 
+#-------------------------------------------------------------------------------------
+# [DO NOT TOUCH THIS PART]
 #-------------------------------------------------------------------------------
 parser = argparse.ArgumentParser()
 parser.add_argument("-j", "--job", type=int, default=0)
@@ -13,15 +11,9 @@ parser.set_defaults(clean_flag=False)
 args = parser.parse_args()
 
 
-#outpath = "/home/gilson/cernbox/HEP/ANALYSIS"
-#outpath_base = os.path.join(outpath, analysis, selection, "datasets")
-outpath_base = "/home/gilson/datasets"
-
 #===============================================================================
 # CHECK ARGUMENT
 #===============================================================================
-#inpath = "files"
-
 has_signal_list = False
 N_signal_points = 1
 Signal_class = None
@@ -33,23 +25,25 @@ for key in classes:
             N_signal_points = len(classes[key][0])
             break
 
+model_parameters = tools.model_parameters(model_type, model_parameters)
+
 modelName = []
 model = []
+i_job = 0
 for i_signal in range(N_signal_points):
-    for i_NN_type in NN_type:
-        for i_num_layers in num_layers:
-            for i_num_nodes in num_nodes:
-                for i_activation_func in activation_func:
-                    for i_optimizer in optimizer:
-                        for i_loss_func in loss_func:
-                            for i_batch_size in batch_size:
-                                for i_lr in learning_rate:
-                                    for i_period in periods:
-                                        modelName.append(i_NN_type+"_"+str(i_num_layers)+"_"+str(i_num_nodes)+"_"+i_activation_func+"_"+i_optimizer+"_"+i_loss_func+"_"+str(i_batch_size)+"_"+str(i_lr).replace(".", "p")+"_"+str(i_period))
-                                        if N_signal_points == 1:
-                                            model.append([i_NN_type] + [[i_num_nodes for i in range(i_num_layers)]] + [i_activation_func] + [i_optimizer] + [i_loss_func] + [i_batch_size] + [i_lr] + [i_period] + [Signal_class])
-                                        else:
-                                            model.append([i_NN_type] + [[i_num_nodes for i in range(i_num_layers)]] + [i_activation_func] + [i_optimizer] + [i_loss_func] + [i_batch_size] + [i_lr] + [i_period] + [classes[Signal_class][0][i_signal]])
+    for i_period in periods:
+        for i_optimizer in optimizer:
+            for i_loss_func in loss_func:
+                for i_batch_size in batch_size:
+                    for i_lr in learning_rate:
+                        for i_model_param in model_parameters:
+                            modelName.append(str(i_job)+"_"+model_type)
+                            if N_signal_points == 1:
+                                model.append([model_type] + [i_period] + [Signal_class] + [i_optimizer] + [i_loss_func] + [i_batch_size] + [i_lr] + [i_model_param])
+                            else:
+                                model.append([model_type] + [i_period] + [classes[Signal_class][0][i_signal]] + [i_optimizer] + [i_loss_func] + [i_batch_size] + [i_lr] + [i_model_param])
+                            i_job += 1
+                            #model[:][2] (Signal_class) is not used anywhere
 
 N = int(args.job)
 if N == -1:
@@ -75,10 +69,10 @@ else:
 # Output setup
 #===============================================================================
 if args.clean_flag:
-    os.system("rm -rf " + os.path.join(outpath_base, model[N][7], "ML", library, tag, signal_tag))
+    os.system("rm -rf " + os.path.join(output_path, model[N][1], "ML", library, tag, signal_tag))
     sys.exit()
 
-ml_outpath = os.path.join(outpath_base, model[N][7], "ML")
+ml_outpath = os.path.join(output_path, model[N][1], "ML")
 if not os.path.exists(ml_outpath):
     os.makedirs(ml_outpath)
 
@@ -106,166 +100,107 @@ import torch
 
 variables = [scalar_variables[i][0] for i in range(len(scalar_variables))]
 var_names = [scalar_variables[i][1] for i in range(len(scalar_variables))]
+var_use = [scalar_variables[i][2] for i in range(len(scalar_variables))]
+var_bins = [scalar_variables[i][3] if len(scalar_variables[i]) == 4 else None for i in range(len(scalar_variables))]
 
 vec_variables = [vector_variables[i][0] for i in range(len(vector_variables))]
 vec_var_names = [vector_variables[i][1] for i in range(len(vector_variables))]
-
-signal_parameters = [input_parameters[i][0] for i in range(len(input_parameters))]
-signal_parameters_names = [input_parameters[i][1] for i in range(len(input_parameters))]
-
-
-if input_mode == "parameterized":
-    if len(signal_parameters) > 2:
-        sys.exit("Code does not support more than 2 signal parameters!")
-        # It can be extended for more than 2 variables
-    else:
-        variables = variables + signal_parameters
-        var_names = var_names + signal_parameters_names
-
-
+vec_var_use = [vector_variables[i][2] for i in range(len(vector_variables))]
 
 
 #===============================================================================
 # Preprocessing input data (modify and stay)
 #===============================================================================
-print("")
-print("Preprocessing input data...")
+if device == "cpu":
+    print("Training will run on CPU.")
+elif device == "cuda":
+    if torch.cuda.is_available():
+        print("Training will run on GPU:", torch.cuda.get_device_name(0))
+    else:
+        print("No GPU available. Training will run on CPU.")
+        device = "cpu"
 
+
+print("")
+print("------------------------------------------------------------------------")
+print("Preprocessing input data")
+print("------------------------------------------------------------------------")
 seed = 16
 
-
-ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, colors = get_sample(outpath_base, model[N][7], classes, N_signal, train_frac, load_size, 0, features=variables+["evtWeight"], vec_features=vec_variables, reweight_info=reweight_variables)
-
-ds_full_train = pd.DataFrame.from_dict(ds_full_train)
-ds_full_test = pd.DataFrame.from_dict(ds_full_test)
-
-
-n_classes = len(classes)
+ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True,
+normalization_method=normalization_method)
 
 signal_param = []
 
-
-
-#=================================================================================
-
-mean = []
-std = []
-for i in range(len(variables)):
-    weighted_stats = DescrStatsW(ds_full_train[variables[i]], weights=ds_full_train["mvaWeight"], ddof=0)
-    mean.append(weighted_stats.mean)
-    std.append(weighted_stats.std)
-print("mean: " + str(mean))
-print("std: " + str(std))
-
-
-stat_values={"mean": mean, "std": std}
-
-
-#==================================================================================
-
-
-
-
-
-#===============================================================================
-# Plot training and test distributions (modify and stay - only for batch size?)
-#===============================================================================
-for ivar in range(len(variables)):
-
-    fig1 = plt.figure(figsize=(10,7))
-    gs1 = gs.GridSpec(1, 1)
-    #==================================================
-    ax1 = plt.subplot(gs1[0])
-    #==================================================
-    var = variables[ivar]
-    if library == "keras":
-        bins = np.linspace(-2.5,2.5,51)
-    elif library == "torch":
-        bins = np.linspace(mean[ivar]-2.5*std[ivar],mean[ivar]+2.5*std[ivar],51)
-    for ikey in range(len(class_names)):
-        step_plot( ax1, var, ds_full_train[ds_full_train["class"] == ikey], label=class_labels[ikey]+" (train)", color=colors[ikey], weight="mvaWeight", bins=bins, error=True )
-        step_plot( ax1, var, ds_full_test[ds_full_test["class"] == ikey], label=class_labels[ikey]+" (test)", color=colors[ikey], weight="mvaWeight", bins=bins, error=True, linestyle='dotted' )
-    ax1.set_xlabel(var_names[ivar], size=14, horizontalalignment='right', x=1.0)
-    ax1.set_ylabel("Events normalized", size=14, horizontalalignment='right', y=1.0)
-
-    ax1.tick_params(which='major', length=8)
-    ax1.tick_params(which='minor', length=4)
-    ax1.xaxis.set_minor_locator(AutoMinorLocator())
-    ax1.yaxis.set_minor_locator(AutoMinorLocator())
-    ax1.spines['bottom'].set_linewidth(1)
-    ax1.spines['top'].set_linewidth(1)
-    ax1.spines['left'].set_linewidth(1)
-    ax1.spines['right'].set_linewidth(1)
-    ax1.margins(x=0)
-    ax1.legend(numpoints=1, ncol=2, prop={'size': 10.5}, frameon=False)
-
-    plt.savefig(os.path.join(plots_outpath, var + '.png'))
-
-
-
-del ds_full_train, ds_full_test, class_names, class_labels, colors
+stat_values = tools.features_stat(model_type, ds_full_train, ds_full_test, vec_full_train, vec_full_test, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath)
 
 if args.check_flag:
+    tools.check_scalars(ds_full_train, variables, var_names, var_use, var_bins, class_names, class_labels, class_colors, plots_outpath)
     sys.exit()
 
+del ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors
 
 
 #===============================================================================
 # RUN TRAINING
 #===============================================================================
 print("")
-print("Training...")
+print("------------------------------------------------------------------------")
+print("Training")
+print("------------------------------------------------------------------------")
 
 start = time.time()
 
 
-class_model, iteration, train_acc, test_acc, train_loss, test_loss, adv_source_acc, adv_target_acc, features_score, features_score_unc = train_model(
-    outpath_base,
+class_model, iteration, train_acc, test_acc, train_loss, test_loss, adv_source_acc, adv_target_acc, feature_score_info, lr_info = tools.train_model(
+    input_path,
     N_signal,
     train_frac,
-    load_size,
+    load_size_training,
     model[N],
     variables,
+    var_names,
+    var_use,
     classes,
+    reweight_info,
     n_iterations = num_max_iterations,
-    signal_param = signal_param,
     mode = library,
     stat_values = stat_values,
     eval_step_size = eval_step_size,
     feature_info = feature_info,
-    reweight_variables=reweight_variables,
+    vec_variables=vec_variables,
+    vec_var_names=vec_var_names,
+    vec_var_use=vec_var_use,
     early_stopping=early_stopping,
+    device=device,
+    initial_model_path=initial_model_path
     )
 
-
-
-if library == "keras":
-    class_model.save(os.path.join(model_outpath, "model.h5"))
-elif library == "torch":
-    #torch.save(class_model, os.path.join(model_outpath, "model.pt"))
-    model_scripted = torch.jit.script(class_model) # Export to TorchScript
-    model_scripted.save(os.path.join(model_outpath, "model_scripted.pt"))
 
 
 if feature_info:
     #===============================================================================
     # SAVE FEATURE IMPORTANCE INFORMATION
     #===============================================================================
-    df_feature = pd.DataFrame(list(zip(variables, features_score, features_score_unc, var_names)),columns=["Feature", "Score", "Score_unc", "Feature_name"])
+    features_score, features_score_unc, features_names = feature_score_info
+
+    df_feature = pd.DataFrame(list(zip(features_score, features_score_unc, features_names)),columns=["Score", "Score_unc", "Feature_name"])
     df_feature = df_feature.sort_values("Score", ascending=False)
     df_feature.to_csv(os.path.join(model_outpath, 'features.csv'), index=False)
 
-    fig1 = plt.figure(figsize=(9,5))
+    nf = len(features_names)
+    yf = 0.345*nf + 0.2
+    #hf = 0.345*nf + 0.42
+    fig1 = plt.figure(figsize=(9,yf))
     grid = [1, 1]
     gs1 = gs.GridSpec(grid[0], grid[1])
-    #-----------------------------------------------------------------------------------------------------------------
-    # Accuracy
-    #-----------------------------------------------------------------------------------------------------------------
+
     ax1 = plt.subplot(gs1[0])
-    y_pos = np.arange(len(variables))
+    y_pos = np.arange(nf)
     ax1.barh(y_pos, df_feature["Score"], xerr=df_feature["Score_unc"], align='center', color="lightsteelblue")
+    ax1.set_ylim([-0.5,nf-0.5])
     ax1.set_yticks(y_pos)
-    ax1.set_yticklabels(df_feature["Feature_name"], size=18)
+    ax1.set_yticklabels(df_feature["Feature_name"], size=14)
     ax1.invert_yaxis()  # labels read top-to-bottom
     ax1.set_xlabel("Feature score", size=14, horizontalalignment='right', x=1.0)
 
@@ -281,16 +216,18 @@ if feature_info:
     ax1.legend(numpoints=1, ncol=1, prop={'size': 10.5}, frameon=False, loc='lower right')
 
 
-    plt.subplots_adjust(left=0.15, bottom=0.115, right=0.990, top=0.95, wspace=0.18, hspace=0.165)
-    plt.savefig(os.path.join(model_outpath, "features.png"))
+    plt.subplots_adjust(left=0.22, bottom=0.5/yf, right=0.97, top=0.99, wspace=0.18, hspace=0.165)
+    plt.savefig(os.path.join(model_outpath, "feature_importance.png"), dpi=400)
+    plt.savefig(os.path.join(model_outpath, "feature_importance.pdf"))
 
 
 #===============================================================================
-# SAVE TRAINING INFORMATION
+# TRAINING INFORMATION
 #===============================================================================
 df_training = pd.DataFrame(list(zip(iteration, train_acc, test_acc, train_loss, test_loss, adv_source_acc, adv_target_acc)),columns=["iteration", "train_acc", "test_acc", "train_loss", "test_loss", "adv_source_acc", "adv_target_acc"])
-
 df_training.to_csv(os.path.join(model_outpath, 'training.csv'), index=False)
+
+lr_info.to_csv(os.path.join(model_outpath, 'lr_info.csv'), index=False)
 
 #iteration = df_training['iteration']
 #train_acc = df_training['train_acc']
@@ -305,12 +242,14 @@ min_loss = np.amin(test_loss)
 position = np.array(iteration[test_loss == min_loss])[0]
 
 
-fig1 = plt.figure(figsize=(18,5))
-grid = [1, 2]
-gs1 = gs.GridSpec(grid[0], grid[1])
+
 #-----------------------------------------------------------------------------------------------------------------
 # Accuracy
 #-----------------------------------------------------------------------------------------------------------------
+fig1 = plt.figure(figsize=(9,5))
+grid = [1, 1]
+gs1 = gs.GridSpec(grid[0], grid[1])
+
 ax1 = plt.subplot(gs1[0])
 plt.axvline(position, color='grey')
 plt.plot(iteration, train_acc, "-", color='red', label='Train (Class Accuracy)')
@@ -324,7 +263,7 @@ ax1.set_ylabel("Accuracy", size=14, horizontalalignment='right', y=1.0)
 ax1.tick_params(which='major', length=8)
 ax1.tick_params(which='minor', length=4)
 ax1.xaxis.set_minor_locator(AutoMinorLocator())
-#ax1.yaxis.set_minor_locator(AutoMinorLocator())
+ax1.yaxis.set_minor_locator(AutoMinorLocator())
 ax1.grid(which='major', axis='x', linewidth=0.2, linestyle='-', color='0.75')
 ax1.grid(which='major', axis='y', linewidth=0.2, linestyle='-', color='0.75')
 ax1.spines['bottom'].set_linewidth(1)
@@ -332,12 +271,29 @@ ax1.spines['top'].set_linewidth(1)
 ax1.spines['left'].set_linewidth(1)
 ax1.spines['right'].set_linewidth(1)
 ax1.margins(x=0)
+ax1.set_ylim([0,1])
 ax1.legend(numpoints=1, ncol=1, prop={'size': 10.5}, frameon=False, loc='lower right')
+
+ax3 = ax1.twiny()
+ax3.set_xlabel("Learning rates", color='darkgreen', size=14, horizontalalignment='right', x=1.0)
+ax3.tick_params('x', colors='darkgreen')
+ax3.tick_params(which='major', length=8)
+ax3.set_xlim([iteration[0],iteration[-1]])
+ax3.set_xticks([iteration[0]]+lr_info["lr_last_it"].tolist()[:-1])
+ax3.set_xticklabels(lr_info["lr_values"])
+
+plt.subplots_adjust(left=0.09, bottom=0.115, right=0.97, top=0.9, wspace=0.18, hspace=0.165)
+plt.savefig(os.path.join(model_outpath, "training_acc.png"), dpi=400)
+plt.savefig(os.path.join(model_outpath, "training_acc.pdf"))
 
 #-----------------------------------------------------------------------------------------------------------------
 # Loss
 #-----------------------------------------------------------------------------------------------------------------
-ax2 = plt.subplot(gs1[1])
+fig1 = plt.figure(figsize=(9,5))
+grid = [1, 1]
+gs1 = gs.GridSpec(grid[0], grid[1])
+
+ax2 = plt.subplot(gs1[0])
 plt.axvline(position, color='grey')
 plt.plot(iteration, train_loss, "-", color='red', label='Train (Class Loss)')
 plt.plot(iteration, test_loss, "-", color='blue', label='Test (Class Loss)')
@@ -347,7 +303,7 @@ ax2.set_ylabel("Loss", size=14, horizontalalignment='right', y=1.0)
 ax2.tick_params(which='major', length=8)
 ax2.tick_params(which='minor', length=4)
 ax2.xaxis.set_minor_locator(AutoMinorLocator())
-#ax2.yaxis.set_minor_locator(AutoMinorLocator())
+ax2.yaxis.set_minor_locator(AutoMinorLocator())
 ax2.grid(which='major', axis='x', linewidth=0.2, linestyle='-', color='0.75')
 ax2.grid(which='major', axis='y', linewidth=0.2, linestyle='-', color='0.75')
 ax2.spines['bottom'].set_linewidth(1)
@@ -357,96 +313,112 @@ ax2.spines['right'].set_linewidth(1)
 ax2.margins(x=0)
 ax2.legend(numpoints=1, ncol=1, prop={'size': 10.5}, frameon=False)
 
-plt.subplots_adjust(left=0.055, bottom=0.115, right=0.990, top=0.95, wspace=0.18, hspace=0.165)
-plt.savefig(os.path.join(model_outpath, "training.png"))
+ax3 = ax2.twiny()
+ax3.set_xlabel("Learning rates", color='darkgreen', size=14, horizontalalignment='right', x=1.0)
+ax3.tick_params('x', colors='darkgreen')
+ax3.tick_params(which='major', length=8)
+ax3.set_xlim([iteration[0],iteration[-1]])
+ax3.set_xticks([iteration[0]]+lr_info["lr_last_it"].tolist()[:-1])
+ax3.set_xticklabels(lr_info["lr_values"])
+
+plt.subplots_adjust(left=0.09, bottom=0.115, right=0.97, top=0.9, wspace=0.18, hspace=0.165)
+plt.savefig(os.path.join(model_outpath, "training_loss.png"), dpi=400)
+plt.savefig(os.path.join(model_outpath, "training_loss.pdf"))
 
 
 #===============================================================================
 # CHECK OVERTRAINING
 #===============================================================================
-ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, colors = get_sample(outpath_base, model[N][7], classes, N_signal, train_frac, load_size, 0, features=variables+["evtWeight"], vec_features=vec_variables, reweight_info=reweight_variables)
+print("")
+print("------------------------------------------------------------------------")
+print("Preparing overtraining plots")
+print("------------------------------------------------------------------------")
+for i_load in tqdm(range(num_load_for_check)):
 
-ds_full_train = pd.DataFrame.from_dict(ds_full_train)
-ds_full_test = pd.DataFrame.from_dict(ds_full_test)
+    ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_training, i_load, reweight_info, features=variables+["evtWeight"], vec_features=vec_variables)
 
-for i in range(n_classes):
-    pred_name = 'score_C'+str(i)
-    ds_full_train[pred_name] = 0.
-    ds_full_test[pred_name] = 0.
+    train_data = tools.process_data(model_type, ds_full_train, vec_full_train, variables, vec_variables, var_use, vec_var_use)
+    test_data = tools.process_data(model_type, ds_full_test, vec_full_test, variables, vec_variables, var_use, vec_var_use)
 
-for ikey in range(len(class_names)):
-    train_x = ds_full_train[ds_full_train["class"] == ikey][variables]
-    train_x = train_x.values
-    test_x = ds_full_test[ds_full_test["class"] == ikey][variables]
-    test_x = test_x.values
+    ds_full_train = pd.DataFrame.from_dict(ds_full_train)
+    ds_full_test = pd.DataFrame.from_dict(ds_full_test)
 
+    n_eval_train_steps = int(len(train_data[-1])/eval_step_size) + 1
+    n_eval_test_steps = int(len(test_data[-1])/eval_step_size) + 1
 
-    n_eval_train_steps = int(len(train_x)/eval_step_size) + 1
-    last_eval_train_step = len(train_x)%eval_step_size
-    n_eval_test_steps = int(len(test_x)/eval_step_size) + 1
-    last_eval_test_step = len(test_x)%eval_step_size
+    class_model.eval()
 
     train_class_pred = []
     for i_eval in range(n_eval_train_steps):
-        if i_eval < n_eval_train_steps-1:
-            eval_train_x = train_x[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
+        i_eval_output = tools.evaluate_model(model_type, train_data, class_model, i_eval, eval_step_size, None, None, stat_values, var_use, device, mode="predict")
+        if i_eval_output is None:
+            continue
         else:
-            eval_train_x = train_x[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_train_step]
-
-        if library == "keras":
-            i_train_class_pred = class_model.predict(eval_train_x)
-        elif library == "torch":
-            i_train_class_pred = model_scripted(torch.FloatTensor(eval_train_x)).detach().numpy()
-
+            i_train_class_pred = i_eval_output
         train_class_pred = train_class_pred + i_train_class_pred.tolist()
     train_class_pred = np.array(train_class_pred)
 
+
     test_class_pred = []
     for i_eval in range(n_eval_test_steps):
-        if i_eval < n_eval_test_steps-1:
-            eval_test_x = test_x[i_eval*eval_step_size:(i_eval+1)*eval_step_size]
+        i_eval_output = tools.evaluate_model(model_type, test_data, class_model, i_eval, eval_step_size, None, None, stat_values, var_use, device, mode="predict")
+        if i_eval_output is None:
+            continue
         else:
-            eval_test_x = test_x[i_eval*eval_step_size:(i_eval*eval_step_size)+last_eval_test_step]
-
-        if library == "keras":
-            i_test_class_pred = class_model.predict(eval_test_x)
-        elif library == "torch":
-            i_test_class_pred = model_scripted(torch.FloatTensor(eval_test_x)).detach().numpy()
-
+            i_test_class_pred = i_eval_output
         test_class_pred = test_class_pred + i_test_class_pred.tolist()
     test_class_pred = np.array(test_class_pred)
 
 
     if model[N][4] == "cce":
-        n_outputs = n_classes
+        n_outputs = len(classes)
         for i in range(n_outputs):
             pred_name = 'score_C'+str(i)
-            ds_full_test.loc[ds_full_test["class"] == ikey, pred_name] = test_class_pred[:,i]
-            ds_full_train.loc[ds_full_train["class"] == ikey, pred_name] = train_class_pred[:,i]
+            ds_full_test[pred_name] = test_class_pred[:,i]
+            ds_full_train[pred_name] = train_class_pred[:,i]
     if model[N][4] == "bce":
         n_outputs = 1
         pred_name = 'score_C0'
-        ds_full_test.loc[ds_full_test["class"] == ikey, pred_name] = 1 - test_class_pred[:,0]
-        ds_full_train.loc[ds_full_train["class"] == ikey, pred_name] = 1 - train_class_pred[:,0]
+        ds_full_test[pred_name] = 1 - test_class_pred[:,0]
+        ds_full_train[pred_name] = 1 - train_class_pred[:,0]
+
+    if i_load == 0:
+        ds_check_test = ds_full_test.copy()
+        ds_check_train = ds_full_train.copy()
+    else:
+        ds_check_test = pd.concat([ds_check_test, ds_full_test])
+        ds_check_train = pd.concat([ds_check_train, ds_full_train])
+
 
 for i in range(n_outputs):
-    fig1 = plt.figure(figsize=(20,7))
+    fig1 = plt.figure(figsize=(9,5))
     gs1 = gs.GridSpec(1,1)
+
     #==================================================
     ax1 = plt.subplot(gs1[0])
     #==================================================
     var = 'score_C'+str(i)
     bins = np.linspace(0,1,51)
+    yTrain = []
+    errTrain = []
+    yTest = []
+    errTest = []
     for ikey in range(len(class_names)):
-        step_plot( ax1, var, ds_full_train[ds_full_train["class"] == ikey], label=class_labels[ikey]+" (train)", color=colors[ikey], weight="mvaWeight", bins=bins, error=True )
-        step_plot( ax1, var, ds_full_test[ds_full_test["class"] == ikey], label=class_labels[ikey]+" (test)", color=colors[ikey], weight="mvaWeight", bins=bins, error=True, linestyle='dotted' )
-    ax1.set_xlabel(class_names[i] + " score", size=14, horizontalalignment='right', x=1.0)
+        yH, errH = tools.step_plot( ax1, var, ds_full_train[ds_full_train["class"] == ikey], label=class_labels[ikey]+" (train)", color=class_colors[ikey], weight="mvaWeight", bins=bins, error=True )
+        yTrain.append(yH)
+        errTrain.append(errH)
+        yH, errH = tools.step_plot( ax1, var, ds_full_test[ds_full_test["class"] == ikey], label=class_labels[ikey]+" (test)", color=class_colors[ikey], weight="mvaWeight", bins=bins, error=True, linestyle='dotted' )
+        yTest.append(yH)
+        errTest.append(errH)
     ax1.set_ylabel("Events normalized", size=14, horizontalalignment='right', y=1.0)
+    ax1.set_xlabel(class_names[i] + " score", size=14, horizontalalignment='right', x=1.0)
+    plt.yscale('log')
+    ax1.set_ylim([1.E-6,1.])
 
     ax1.tick_params(which='major', length=8)
     ax1.tick_params(which='minor', length=4)
     ax1.xaxis.set_minor_locator(AutoMinorLocator())
-    ax1.yaxis.set_minor_locator(AutoMinorLocator())
+    #ax1.yaxis.set_minor_locator(AutoMinorLocator())
     ax1.spines['bottom'].set_linewidth(1)
     ax1.spines['top'].set_linewidth(1)
     ax1.spines['left'].set_linewidth(1)
@@ -454,52 +426,67 @@ for i in range(n_outputs):
     ax1.margins(x=0)
     ax1.legend(numpoints=1, ncol=1, prop={'size': 10.5}, frameon=False, loc='upper center')
 
-    plt.savefig(os.path.join(model_outpath, var + ".png"))
+    plt.subplots_adjust(left=0.09, bottom=0.115, right=0.97, top=0.95, wspace=0.18, hspace=0.165)
+    plt.savefig(os.path.join(model_outpath, var + "_hist.png"), dpi=400)
+    plt.savefig(os.path.join(model_outpath, var + "_hist.pdf"))
 
-del ds_full_train, ds_full_test, class_names, class_labels, colors
-"""
-fig1 = plt.figure(figsize=(18,5))
-grid = [1, 2]
-gs1 = gs.GridSpec(grid[0], grid[1])
-#==================================================
-ax1 = plt.subplot(gs1[0])
-#==================================================
-var = 'score_C0'
-signal_train_roc = []
-signal_test_roc = []
-bkg_train_roc = []
-bkg_test_roc = []
-ikey = 0
-for key in df.keys():
-    if ikey == 0:
-        signal_train_roc.append(df_train[key])
-        signal_test_roc.append(df_test[key])
-        ikey += 1
-    else:
-        bkg_train_roc.append(df_train[key])
-        bkg_test_roc.append(df_test[key])
 
-ctr_train = func.control( var, signal_train_roc, bkg_train_roc, weight="evtWeight", bins=np.linspace(0,1,1001) )
-ctr_train.roc_plot(label='ROC (train)', color='blue', linestyle="-")
-ctr_test = func.control( var, signal_test_roc, bkg_test_roc, weight="evtWeight", bins=np.linspace(0,1,1001) )
-ctr_test.roc_plot(label='ROC (test)', color='blue', linestyle="--")
+    #------------------------------------------------------------------------------------
+    fig1 = plt.figure(figsize=(9,5))
+    grid = [1, 1]
+    gs1 = gs.GridSpec(grid[0], grid[1])
+    #==================================================
+    ax1 = plt.subplot(gs1[0])
+    #==================================================
+    var = 'score_C'+str(i)
+    signal_train_roc = []
+    signal_test_roc = []
+    bkg_train_roc = []
+    bkg_test_roc = []
+    for ikey in range(len(class_names)):
+        if ikey == i:
+            signal_train_roc.append(ds_full_train[ds_full_train["class"] == ikey])
+            signal_test_roc.append(ds_full_test[ds_full_test["class"] == ikey])
+        else:
+            bkg_train_roc.append(ds_full_train[ds_full_train["class"] == ikey])
+            bkg_test_roc.append(ds_full_test[ds_full_test["class"] == ikey])
 
-ax1.set_xlabel("Background rejection", size=14, horizontalalignment='right', x=1.0)
-ax1.set_ylabel("Signal efficiency", size=14, horizontalalignment='right', y=1.0)
+    ctr_train = tools.control( var, signal_train_roc, bkg_train_roc, weight="evtWeight", bins=np.linspace(0,1,1001) )
+    ctr_train.roc_plot(label='ROC (train)', color='blue', linestyle="-", version=2)
+    ctr_test = tools.control( var, signal_test_roc, bkg_test_roc, weight="evtWeight", bins=np.linspace(0,1,1001) )
+    ctr_test.roc_plot(label='ROC (test)', color='blue', linestyle="--", version=2)
 
-ax1.tick_params(which='major', length=8)
-ax1.tick_params(which='minor', length=4)
-ax1.xaxis.set_minor_locator(AutoMinorLocator())
-ax1.yaxis.set_minor_locator(AutoMinorLocator())
-ax1.spines['bottom'].set_linewidth(1)
-ax1.spines['top'].set_linewidth(1)
-ax1.spines['left'].set_linewidth(1)
-ax1.spines['right'].set_linewidth(1)
-ax1.margins(x=0)
-ax1.legend(numpoints=1, ncol=1, prop={'size': 10.5}, frameon=False, loc='lower left')
+    ax1.set_xlabel("Signal efficiency", size=14, horizontalalignment='right', x=1.0)
+    ax1.set_ylabel("Background efficiency", size=14, horizontalalignment='right', y=1.0)
+    plt.yscale('log')
+    ax1.set_xlim([0,1])
+    ax1.set_ylim([1.E-3,1.])
 
-plt.savefig(os.path.join(model_outpath, "ROC.png"))
-"""
+    ax1.grid(which='major', axis='x', linewidth=0.2, linestyle='-', color='0.75')
+    ax1.grid(which='major', axis='y', linewidth=0.2, linestyle='-', color='0.75')
+    ax1.tick_params(which='major', length=8)
+    ax1.tick_params(which='minor', length=4)
+    ax1.xaxis.set_minor_locator(AutoMinorLocator())
+    #ax1.yaxis.set_minor_locator(AutoMinorLocator())
+    ax1.spines['bottom'].set_linewidth(1)
+    ax1.spines['top'].set_linewidth(1)
+    ax1.spines['left'].set_linewidth(1)
+    ax1.spines['right'].set_linewidth(1)
+    ax1.margins(x=0)
+    ax1.legend(numpoints=1, ncol=1, prop={'size': 10.5}, frameon=False, loc='lower center')
+
+    plt.subplots_adjust(left=0.09, bottom=0.115, right=0.97, top=0.95, wspace=0.18, hspace=0.165)
+    plt.savefig(os.path.join(model_outpath, var + "_roc.png"), dpi=400)
+    plt.savefig(os.path.join(model_outpath, var + "_roc.pdf"))
+
+del ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors
+
+
+#===============================================================================
+# SAVE MODEL
+#===============================================================================
+tools.save_model(model_type, class_model, model_outpath, stat_values["dim"], device)
+
 
 
 #===============================================================================
@@ -513,5 +500,4 @@ print("-------------------------------------------------------------------------
 print("Total process duration: " + str(hours) + " hours " + str(minutes) + " minutes " + str(seconds) + " seconds")
 print("-----------------------------------------------------------------------------------")
 print("")
-
 

@@ -3,6 +3,7 @@
 flavor=\"$1\"
 N_models=$2
 trainer=$3
+device=$4
 
 # Check if HEP_OUTPATH variable exists then read
 if [[ -z "${HEP_OUTPATH}" ]]; then
@@ -46,6 +47,13 @@ else
     sed -i "s/.*queue.*/queue ${N_models}/" train.sub
     sed -i "s~.*arguments.*~arguments             = \$(ProcId) $(pwd) ${outpath} ${machines} ${trainer}~" train.sub
     sed -i "s/.*+JobFlavour.*/+JobFlavour = ${flavor}/" train.sub
+
+    if [ "${device}" == "gpu" ]
+    then
+      sed -i "s/.*request_gpus.*/request_gpus          = 1/" train.sub
+    else
+      sed -i "s/.*request_gpus.*/request_gpus          = 0/" train.sub
+    fi
 
     python $trainer --clean
     condor_submit train.sub

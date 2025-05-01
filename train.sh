@@ -23,7 +23,7 @@ cd ..
 fi
 
 ls
-source /cvmfs/sft.cern.ch/lcg/views/LCG_100/x86_64-centos7-gcc10-opt/setup.sh
+source /cvmfs/sft.cern.ch/lcg/views/LCG_105/x86_64-el9-gcc11-opt/setup.sh
 #python -m venv hepenv
 #source hepenv/bin/activate
 cd HEPHeroML

@@ -24,7 +24,7 @@ learning_rate = [ 0.01 ]#, 0.1, 0.001 ]
 # Training setup
 #--------------------------------------------------------------------------------------------------
 batch_size = [ 1000 ]
-load_size = 50000
+load_size = 1000
 train_frac = 0.5
 eval_step_size = 1000
 num_max_iterations = 11000
@@ -59,32 +59,32 @@ scalar_variables = [
     ]
 
 vector_variables = [
-    #["jet_pfcand_abseta",       "jet_pfcand_abseta"],
-    ["jet_pfcand_pt_log",       "jet_pfcand_pt_log"],
-    ["jet_pfcand_energy_log",   "jet_pfcand_energy_log"],
-    #["jet_pfcand_dxy",          "jet_pfcand_dxy"],
-    #["jet_pfcand_dxysig",       "jet_pfcand_dxysig"],
-    #["jet_pfcand_dz",           "jet_pfcand_dz"],
-    #["jet_pfcand_dzsig",        "jet_pfcand_dzsig"],
-    ["jet_pfcand_deta",         "jet_pfcand_deta"],
-    ["jet_pfcand_dphi",         "jet_pfcand_dphi"],
-    #["jet_pfcand_frompv",       "jet_pfcand_frompv"],
-    #["jet_pfcand_charge",       "jet_pfcand_charge"],
-    #["jet_pfcand_track_qual",   "jet_pfcand_track_qual"],
-    #["jet_pfcand_track_chi2",   "jet_pfcand_track_chi2"],
-    #["jet_pfcand_nhits",        "jet_pfcand_nhits"],
-    #["jet_pfcand_nlosthits",    "jet_pfcand_nlosthits"],
-    ["jet_sv_pt_log",           "jet_sv_pt_log"],
-    #["jet_sv_abseta",           "jet_sv_abseta"],
-    ["jet_sv_mass",             "jet_sv_mass"],
-    ["jet_sv_deta",             "jet_sv_deta"],
-    ["jet_sv_dphi",             "jet_sv_dphi"],
-    #["jet_sv_chi2",             "jet_sv_chi2"],
-    #["jet_sv_dxy",              "jet_sv_dxy"],
-    #["jet_sv_dxysig",           "jet_sv_dxysig"],
-    #["jet_sv_d3d",              "jet_sv_d3d"],
-    #["jet_sv_d3dsig",           "jet_sv_d3dsig"],
-    #["jet_sv_ntrack",           "jet_sv_ntrack"],
+    #["jetPFcand_abseta",       "jetPFcand_abseta"],
+    ["jetPFcand_pt_log",       "jetPFcand_pt_log"],
+    ["jetPFcand_energy_log",   "jetPFcand_energy_log"],
+    #["jetPFcand_dxy",          "jetPFcand_dxy"],
+    #["jetPFcand_dxysig",       "jetPFcand_dxysig"],
+    #["jetPFcand_dz",           "jetPFcand_dz"],
+    #["jetPFcand_dzsig",        "jetPFcand_dzsig"],
+    ["jetPFcand_deta",         "jetPFcand_deta"],
+    ["jetPFcand_dphi",         "jetPFcand_dphi"],
+    #["jetPFcand_frompv",       "jetPFcand_frompv"],
+    #["jetPFcand_charge",       "jetPFcand_charge"],
+    #["jetPFcand_track_qual",   "jetPFcand_track_qual"],
+    #["jetPFcand_track_chi2",   "jetPFcand_track_chi2"],
+    #["jetPFcand_nhits",        "jetPFcand_nhits"],
+    #["jetPFcand_nlosthits",    "jetPFcand_nlosthits"],
+    ["jetSV_pt_log",           "jetSV_pt_log"],
+    #["jetSV_abseta",           "jetSV_abseta"],
+    ["jetSV_mass",             "jetSV_mass"],
+    ["jetSV_deta",             "jetSV_deta"],
+    ["jetSV_dphi",             "jetSV_dphi"],
+    #["jetSV_chi2",             "jetSV_chi2"],
+    #["jetSV_dxy",              "jetSV_dxy"],
+    #["jetSV_dxysig",           "jetSV_dxysig"],
+    #["jetSV_d3d",              "jetSV_d3d"],
+    #["jetSV_d3dsig",           "jetSV_d3dsig"],
+    #["jetSV_ntrack",           "jetSV_ntrack"],
     ]
 
 reweight_variables = [
