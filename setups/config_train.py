@@ -7,8 +7,24 @@ parser.add_argument("--check", dest='check_flag', action='store_true')
 parser.set_defaults(check_flag=False)
 parser.add_argument("--clean", dest='clean_flag', action='store_true')
 parser.set_defaults(clean_flag=False)
+parser.add_argument("--evaluate", dest='evaluate_flag', action='store_true')
+parser.set_defaults(evaluate_flag=False)
 
 args = parser.parse_args()
+
+
+#===============================================================================
+# EVALUATE MODELS
+#===============================================================================
+if args.evaluate_flag:
+    for i_period in periods:
+        print("==================================")
+        print(i_period)
+        print("==================================")
+        print(" ")
+        print(" ")
+        tools.evaluate_models(i_period, library, tag, output_path)
+    sys.exit()
 
 
 #===============================================================================
