@@ -88,12 +88,8 @@ Evaluate the results
 -----------
 After the jobs have finished, evaluate the training results:
 ```bash
-python evaluate.py -s selection_name -p period -a analysis -t tag -l library
+python train_OPENDATA_Class.py --evaluate
 ```
-Ex.:
-```bash
-python evaluate.py -s MLOD -p 12 -a OPENDATA -t Class -l torch
-```
-period = 12, APV_16, 16, 17, or 18
+
 
 

@@ -1091,13 +1091,14 @@ def evaluate_models(period, library, tag, outpath_base):
         models_path = os.path.join(save_path, 'models')
         if not os.path.exists(models_path):
             os.makedirs(models_path)
-        if len(df_training) <= 3:
+        if len(df_training) <= 1:
             for model in list_models:
                 copyCommand = "cp -rf " + os.path.join(ml_outpath, signal, 'models', model) + " " + models_path
                 os.system(copyCommand)
         else:
             for model in list_models:
-                if( model == df_training.loc[0]["Model"] or model == df_training.loc[1]["Model"] or model == df_training.loc[2]["Model"]):
+                #if( model == df_training.loc[0]["Model"] or model == df_training.loc[1]["Model"] or model == df_training.loc[2]["Model"] ):
+                if( model == df_training.loc[0]["Model"] ):
                     copyCommand = "cp -rf " + os.path.join(ml_outpath, signal, 'models', model) + " " + models_path
                     os.system(copyCommand)
 
