@@ -118,12 +118,14 @@ def features_stat_PNN(train_data, test_data, variables, var_names, var_use, clas
         var1 = train_data[variables[idx]][train_data["class"] == var_use[idx][0]] # use info only from the first signal class
         par_points = list(set(var1))
 
-        if len(var_use[idx]) == 1:
+        if len(var_use[idx]) == 1: # one signal
             train_bkg_len = len(train_data[train_data['class'] != var_use[idx][0]])
+            
             train_data.loc[train_data['class'] != var_use[idx][0], variables[idx]] = np.array(random.choices(par_points, k=train_bkg_len))
+            
             test_bkg_len = len(test_data[test_data['class'] != var_use[idx][0]])
             test_data.loc[test_data['class'] != var_use[idx][0], variables[idx]] = np.array(random.choices(par_points, k=test_bkg_len))
-        elif len(var_use[idx]) == 2:
+        elif len(var_use[idx]) == 2: # two signals
             train_bkg_len = len(train_data[(train_data['class'] != var_use[idx][0]) & (train_data['class'] != var_use[idx][1])])
             train_data.loc[(train_data['class'] != var_use[idx][0]) & (train_data['class'] != var_use[idx][1]), variables[idx]] = np.array(random.choices(par_points, k=train_bkg_len))
             test_bkg_len = len(test_data[(test_data['class'] != var_use[idx][0]) & (test_data['class'] != var_use[idx][1])])
@@ -136,16 +138,22 @@ def features_stat_PNN(train_data, test_data, variables, var_names, var_use, clas
         var2 = train_data[variables[idx2]][train_data["class"] == var_use[idx2][0]]
         par_points = list(set(zip(var1,var2)))
 
-        if len(var_use[idx1]) == 1:
+        if len(var_use[idx1]) == 1: # one signal
             train_bkg_len = len(train_data[train_data['class'] != var_use[idx1][0]])
             param_array = np.array(random.choices(par_points, k=train_bkg_len))
+            #print("var_use[idx1]",var_use[idx1]) # It is a list because can be for more than 1 signal
+            #print("var_use[idx2]",var_use[idx2])
+            #print("variables[idx1]",variables[idx1])
+            #print("variables[idx2]",variables[idx2])
+            #print("param_array[:,0]",param_array[:,0][0:10])
+            #print("param_array[:,1]",param_array[:,1][0:10])
             train_data.loc[(train_data['class'] != var_use[idx1][0]), variables[idx1]] = param_array[:,0]
             train_data.loc[(train_data['class'] != var_use[idx2][0]), variables[idx2]] = param_array[:,1]
             test_bkg_len = len(test_data[test_data['class'] != var_use[idx1][0]])
             param_array = np.array(random.choices(par_points, k=test_bkg_len))
             test_data.loc[(test_data['class'] != var_use[idx1][0]), variables[idx1]] = param_array[:,0]
             test_data.loc[(test_data['class'] != var_use[idx2][0]), variables[idx2]] = param_array[:,1]
-        elif len(var_use[idx1]) == 2:
+        elif len(var_use[idx1]) == 2: # two signals
             train_bkg_len = len(train_data[(train_data['class'] != var_use[idx1][0]) & (train_data['class'] != var_use[idx1][1])])
             param_array = np.array(random.choices(par_points, k=train_bkg_len))
             train_data.loc[(train_data['class'] != var_use[idx1][0]) & (train_data['class'] != var_use[idx1][1]), variables[idx1]] = param_array[:,0]
@@ -169,7 +177,7 @@ def features_stat_PNN(train_data, test_data, variables, var_names, var_use, clas
     print("dim: " + str(dim))
     print("par_dim: " + str(par_dim))
     print("par_idx: " + str(par_idx))
-    print("par_points: " + str(par_points))
+    #print("par_points: " + str(par_points))
     stat_values={"mean": mean, "std": std, "dim": dim, "par_dim": par_dim, "par_idx": par_idx, "par_points": par_points}
 
 
