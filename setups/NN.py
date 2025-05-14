@@ -9,7 +9,7 @@ periods = ['0_22']
 #--------------------------------------------------------------------------------------------------
 # ML setup
 #--------------------------------------------------------------------------------------------------
-device = 'cpu' # 'cuda'
+device = 'cuda' # 'cpu'
 library = 'torch'
 optimizer = ['ranger', 'adam', 'sgd']
 loss_func = ['bce', 'cce']
@@ -23,7 +23,9 @@ model_type = 'NN'
 model_parameters = {
     'num_layers': [1, 2],
     'num_nodes': [10],
-    'activation_func': ['elu']
+    'activation_func': ['elu', 'relu', 'tanh', 'selu', 'gelu'],
+    'batch_norm': [True, False],
+    'dropout': [None, 0.2, 0.5],
     }
 
 

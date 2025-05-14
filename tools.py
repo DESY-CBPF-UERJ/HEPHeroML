@@ -668,6 +668,101 @@ class control:
 
 
 #======================================================================================================================
+def features_pca( ds_full_train_pca, variables, var_names, var_use, stat_values, class_names_pca, class_labels_pca, class_colors_pca, plots_outpath ):
+
+    ds_full_train_pca = pd.DataFrame.from_dict(ds_full_train_pca)
+    w = np.array(ds_full_train_pca['mvaWeight']).ravel()
+    classes = np.array(ds_full_train_pca['class']).ravel()
+
+    features = [ variables[i] for i in range(len(variables)) if var_use[i] == "F"]
+    data_x = ds_full_train_pca[features]
+    x = data_x.to_numpy()
+    x_mean = np.array([ stat_values["mean"][i] for i in range(len(variables)) if var_use[i] == "F"])
+    x_std = np.array([ stat_values["std"][i] for i in range(len(variables)) if var_use[i] == "F"])
+    x = (x - x_mean) / x_std
+
+    w_cov = w.copy()
+    w_cov[w_cov < 0] = 0
+    covariance_matrix = np.cov(x, rowvar=False, aweights=w_cov, ddof=0)
+    eigenvalues_pca, eigenvectors_pca = np.linalg.eig(covariance_matrix)
+    x_pca = np.matmul(x, eigenvectors_pca)
+
+    mean_pca = []
+    std_pca = []
+    for i in range(len(features)):
+        weighted_stats = DescrStatsW(x_pca[:,i], weights=w, ddof=0)
+        mean_pca.append(weighted_stats.mean)
+        std_pca.append(weighted_stats.std)
+    np.set_printoptions(legacy='1.21')
+    print("mean_pca: " + str(mean_pca))
+    print("std_pca: " + str(std_pca))
+    print("eigenvalues_pca: " + str(eigenvalues_pca))
+
+    n_features = len(features)
+    n_param = len(variables)-len(features)
+    eigenvectors_ext_pca = np.block([
+        [eigenvectors_pca,                np.zeros((n_features, n_param))],
+        [np.zeros((n_param, n_features)), np.eye(n_param)                ]
+    ])
+    mean_ext_pca = np.block([np.array(mean_pca), np.zeros(n_param)])
+    std_ext_pca = np.block([np.array(std_pca), np.ones(n_param)])
+
+    pca_values={"mean_pca": mean_ext_pca, "std_pca": std_ext_pca, "eigenvectors_pca": eigenvectors_ext_pca}
+
+    #------------------------------------------------------------------------------------
+    # Emulate format of variables in the NN input
+    """
+    data_x_ext = ds_full_train_pca[variables]
+    x_ext = data_x_ext.to_numpy()
+    x_ext_mean = np.array(stat_values["mean"])
+    x_ext_std = np.array(stat_values["std"])
+    x_ext = (x_ext - x_ext_mean) / x_ext_std
+    x_ext_pca = np.matmul(x_ext, eigenvectors_ext_pca)
+    """
+    #------------------------------------------------------------------------------------
+
+    col_names = ["PCA_component_"+str(i) for i in np.arange(x_pca.shape[1])]
+    df_pca = pd.DataFrame(x_pca, columns=col_names)
+    df_pca['mvaWeight'] = w
+    df_pca['class'] = classes
+
+
+    for i in range(len(features)):
+        fig1 = plt.figure(figsize=(9,5))
+        gs1 = gs.GridSpec(1, 1)
+        #==================================================
+        ax1 = plt.subplot(gs1[0])
+        #==================================================
+        var = col_names[i]
+        bins = np.linspace(mean_pca[i]-5*std_pca[i],mean_pca[i]+5*std_pca[i],101)
+        for ikey in range(len(class_names_pca)):
+            tools.step_plot( ax1, var, df_pca[df_pca["class"] == ikey], label=class_labels_pca[ikey]+" (train)", color=class_colors_pca[ikey], weight="mvaWeight", bins=bins, error=True )
+
+
+        #tools.step_plot( ax1, var, df_pca, label="Train sample", color="blue", weight="mvaWeight", bins=bins, error=True )
+        ax1.set_xlabel(col_names[i], size=14, horizontalalignment='right', x=1.0)
+        ax1.set_ylabel("Events normalized", size=14, horizontalalignment='right', y=1.0)
+
+        ax1.tick_params(which='major', length=8)
+        ax1.tick_params(which='minor', length=4)
+        ax1.xaxis.set_minor_locator(AutoMinorLocator())
+        ax1.yaxis.set_minor_locator(AutoMinorLocator())
+        ax1.spines['bottom'].set_linewidth(1)
+        ax1.spines['top'].set_linewidth(1)
+        ax1.spines['left'].set_linewidth(1)
+        ax1.spines['right'].set_linewidth(1)
+        ax1.margins(x=0)
+        ax1.legend(numpoints=1, ncol=2, prop={'size': 10.5}, frameon=False)
+
+        plt.subplots_adjust(left=0.09, bottom=0.115, right=0.97, top=0.95, wspace=0.18, hspace=0.165)
+        plt.savefig(os.path.join(plots_outpath, var + '.png'), dpi=400)
+        plt.savefig(os.path.join(plots_outpath, var + '.pdf'))
+        plt.close()
+
+    return pca_values
+    
+
+#======================================================================================================================
 def step_plot( ax, var, dataframe, label, color='black', weight=None, error=False, normalize=False, bins=np.linspace(0,100,5), linestyle='solid', overflow=False, underflow=False ):
 
 

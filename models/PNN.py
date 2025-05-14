@@ -31,14 +31,40 @@ class build_PNN(nn.Module):
             self.mean = torch.tensor(stat_values["mean"], dtype=torch.float32)
             self.std = torch.tensor(stat_values["std"], dtype=torch.float32)
 
+        self.apply_pca = False
+        if "eigenvectors_pca" in stat_values:
+            self.apply_pca = True
+            if device == "cuda":
+                self.eigenvectors_pca = torch.tensor(stat_values["eigenvectors_pca"], dtype=torch.float32).to("cuda")
+                self.mean_pca = torch.tensor(stat_values["mean_pca"], dtype=torch.float32).to("cuda")
+                self.std_pca = torch.tensor(stat_values["std_pca"], dtype=torch.float32).to("cuda")
+            else:
+                self.eigenvectors_pca = torch.tensor(stat_values["eigenvectors_pca"], dtype=torch.float32)
+                self.mean_pca = torch.tensor(stat_values["mean_pca"], dtype=torch.float32)
+                self.std_pca = torch.tensor(stat_values["std_pca"], dtype=torch.float32)
+
         if parameters[7][1] == 'relu':
             self.activation_hidden = nn.ReLU()
         elif parameters[7][1] == 'tanh':
             self.activation_hidden = nn.Tanh()
         elif parameters[7][1] == 'elu':
             self.activation_hidden = nn.ELU()
+        elif parameters[7][1] == 'gelu':
+            self.activation_hidden = nn.GELU()
+        elif parameters[7][1] == 'selu':
+            self.activation_hidden = nn.SELU()
         else:
             print("Error: hidden activation function not supported!")
+
+        self.apply_BatchNorm = False
+        if parameters[7][2]:
+            self.apply_BatchNorm = True
+            self.BatchNorm = nn.BatchNorm1d(parameters[7][0][0])
+
+        self.apply_Dropout = False
+        if parameters[7][3] is not None:
+            self.apply_Dropout = True
+            self.Dropout = nn.Dropout(p=parameters[7][3])
 
         if parameters[4] == 'cce':
             self.activation_last = nn.Softmax(dim=1)
@@ -60,18 +86,31 @@ class build_PNN(nn.Module):
     def stat_device(self, dev):
         self.mean = self.mean.to(dev)
         self.std = self.std.to(dev)
+        self.eigenvectors_pca = self.eigenvectors_pca.to(dev)
+        self.mean_pca = self.mean_pca.to(dev)
+        self.std_pca = self.std_pca.to(dev)
 
     # Prediction
     def forward(self, x):
 
         x = (x - self.mean) / self.std
 
+        if self.apply_pca:
+            x = torch.matmul(x, self.eigenvectors_pca)
+            x = (x - self.mean_pca) / self.std_pca
+
         N_layers = len(self.hidden)
         for i, layer in enumerate(self.hidden):
             if i < N_layers-1:
-                x = self.activation_hidden(layer(x))
+                x = layer(x)
+                if self.apply_BatchNorm:
+                    x = self.BatchNorm(x)
+                x = self.activation_hidden(x)
+                if self.apply_Dropout:
+                    x = self.Dropout(x)
             else:
-                x = self.activation_last(layer(x))
+                x = layer(x)
+                x = self.activation_last(x)
 
         return x
 
@@ -81,12 +120,16 @@ def model_parameters_PNN(param_dict):
     num_layers = param_dict["num_layers"]
     num_nodes = param_dict["num_nodes"]
     activation_func = param_dict["activation_func"]
+    batch_norm = param_dict["batch_norm"]
+    dropout = param_dict["dropout"]
 
     model_parameters = []
     for i_num_layers in num_layers:
         for i_num_nodes in num_nodes:
             for i_activation_func in activation_func:
-                model_parameters.append([[i_num_nodes for i in range(i_num_layers)]] + [i_activation_func])
+                for i_batch_norm in batch_norm:
+                    for i_dropout in dropout:
+                        model_parameters.append([[i_num_nodes for i in range(i_num_layers)]] + [i_activation_func] + [i_batch_norm] + [i_dropout])
 
     return model_parameters
 
@@ -118,14 +161,12 @@ def features_stat_PNN(train_data, test_data, variables, var_names, var_use, clas
         var1 = train_data[variables[idx]][train_data["class"] == var_use[idx][0]] # use info only from the first signal class
         par_points = list(set(var1))
 
-        if len(var_use[idx]) == 1: # one signal
+        if len(var_use[idx]) == 1:
             train_bkg_len = len(train_data[train_data['class'] != var_use[idx][0]])
-            
             train_data.loc[train_data['class'] != var_use[idx][0], variables[idx]] = np.array(random.choices(par_points, k=train_bkg_len))
-            
             test_bkg_len = len(test_data[test_data['class'] != var_use[idx][0]])
             test_data.loc[test_data['class'] != var_use[idx][0], variables[idx]] = np.array(random.choices(par_points, k=test_bkg_len))
-        elif len(var_use[idx]) == 2: # two signals
+        elif len(var_use[idx]) == 2:
             train_bkg_len = len(train_data[(train_data['class'] != var_use[idx][0]) & (train_data['class'] != var_use[idx][1])])
             train_data.loc[(train_data['class'] != var_use[idx][0]) & (train_data['class'] != var_use[idx][1]), variables[idx]] = np.array(random.choices(par_points, k=train_bkg_len))
             test_bkg_len = len(test_data[(test_data['class'] != var_use[idx][0]) & (test_data['class'] != var_use[idx][1])])
@@ -138,22 +179,16 @@ def features_stat_PNN(train_data, test_data, variables, var_names, var_use, clas
         var2 = train_data[variables[idx2]][train_data["class"] == var_use[idx2][0]]
         par_points = list(set(zip(var1,var2)))
 
-        if len(var_use[idx1]) == 1: # one signal
+        if len(var_use[idx1]) == 1:
             train_bkg_len = len(train_data[train_data['class'] != var_use[idx1][0]])
             param_array = np.array(random.choices(par_points, k=train_bkg_len))
-            #print("var_use[idx1]",var_use[idx1]) # It is a list because can be for more than 1 signal
-            #print("var_use[idx2]",var_use[idx2])
-            #print("variables[idx1]",variables[idx1])
-            #print("variables[idx2]",variables[idx2])
-            #print("param_array[:,0]",param_array[:,0][0:10])
-            #print("param_array[:,1]",param_array[:,1][0:10])
             train_data.loc[(train_data['class'] != var_use[idx1][0]), variables[idx1]] = param_array[:,0]
             train_data.loc[(train_data['class'] != var_use[idx2][0]), variables[idx2]] = param_array[:,1]
             test_bkg_len = len(test_data[test_data['class'] != var_use[idx1][0]])
             param_array = np.array(random.choices(par_points, k=test_bkg_len))
             test_data.loc[(test_data['class'] != var_use[idx1][0]), variables[idx1]] = param_array[:,0]
             test_data.loc[(test_data['class'] != var_use[idx2][0]), variables[idx2]] = param_array[:,1]
-        elif len(var_use[idx1]) == 2: # two signals
+        elif len(var_use[idx1]) == 2:
             train_bkg_len = len(train_data[(train_data['class'] != var_use[idx1][0]) & (train_data['class'] != var_use[idx1][1])])
             param_array = np.array(random.choices(par_points, k=train_bkg_len))
             train_data.loc[(train_data['class'] != var_use[idx1][0]) & (train_data['class'] != var_use[idx1][1]), variables[idx1]] = param_array[:,0]
@@ -182,7 +217,6 @@ def features_stat_PNN(train_data, test_data, variables, var_names, var_use, clas
 
 
     for ivar in range(len(variables)):
-
         fig1 = plt.figure(figsize=(9,5))
         gs1 = gs.GridSpec(1, 1)
         #==================================================

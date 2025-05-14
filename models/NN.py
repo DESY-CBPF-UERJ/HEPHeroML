@@ -30,14 +30,40 @@ class build_NN(nn.Module):
             self.mean = torch.tensor(stat_values["mean"], dtype=torch.float32)
             self.std = torch.tensor(stat_values["std"], dtype=torch.float32)
 
+        self.apply_pca = False
+        if "eigenvectors_pca" in stat_values:
+            self.apply_pca = True
+            if device == "cuda":
+                self.eigenvectors_pca = torch.tensor(stat_values["eigenvectors_pca"], dtype=torch.float32).to("cuda")
+                self.mean_pca = torch.tensor(stat_values["mean_pca"], dtype=torch.float32).to("cuda")
+                self.std_pca = torch.tensor(stat_values["std_pca"], dtype=torch.float32).to("cuda")
+            else:
+                self.eigenvectors_pca = torch.tensor(stat_values["eigenvectors_pca"], dtype=torch.float32)
+                self.mean_pca = torch.tensor(stat_values["mean_pca"], dtype=torch.float32)
+                self.std_pca = torch.tensor(stat_values["std_pca"], dtype=torch.float32)
+
         if parameters[7][1] == 'relu':
             self.activation_hidden = nn.ReLU()
         elif parameters[7][1] == 'tanh':
             self.activation_hidden = nn.Tanh()
         elif parameters[7][1] == 'elu':
             self.activation_hidden = nn.ELU()
+        elif parameters[7][1] == 'gelu':
+            self.activation_hidden = nn.GELU()
+        elif parameters[7][1] == 'selu':
+            self.activation_hidden = nn.SELU()
         else:
             print("Error: hidden activation function not supported!")
+
+        self.apply_BatchNorm = False
+        if parameters[7][2]:
+            self.apply_BatchNorm = True
+            self.BatchNorm = nn.BatchNorm1d(parameters[7][0][0])
+
+        self.apply_Dropout = False
+        if parameters[7][3] is not None:
+            self.apply_Dropout = True
+            self.Dropout = nn.Dropout(p=parameters[7][3])
 
         if parameters[4] == 'cce':
             self.activation_last = nn.Softmax(dim=1)
@@ -59,18 +85,31 @@ class build_NN(nn.Module):
     def stat_device(self, dev):
         self.mean = self.mean.to(dev)
         self.std = self.std.to(dev)
+        self.eigenvectors_pca = self.eigenvectors_pca.to(dev)
+        self.mean_pca = self.mean_pca.to(dev)
+        self.std_pca = self.std_pca.to(dev)
 
     # Prediction
     def forward(self, x):
 
         x = (x - self.mean) / self.std
 
+        if self.apply_pca:
+            x = torch.matmul(x, self.eigenvectors_pca)
+            x = (x - self.mean_pca) / self.std_pca
+
         N_layers = len(self.hidden)
         for i, layer in enumerate(self.hidden):
             if i < N_layers-1:
-                x = self.activation_hidden(layer(x))
+                x = layer(x)
+                if self.apply_BatchNorm:
+                    x = self.BatchNorm(x)
+                x = self.activation_hidden(x)
+                if self.apply_Dropout:
+                    x = self.Dropout(x)
             else:
-                x = self.activation_last(layer(x))
+                x = layer(x)
+                x = self.activation_last(x)
 
         return x
 
@@ -80,12 +119,16 @@ def model_parameters_NN(param_dict):
     num_layers = param_dict["num_layers"]
     num_nodes = param_dict["num_nodes"]
     activation_func = param_dict["activation_func"]
+    batch_norm = param_dict["batch_norm"]
+    dropout = param_dict["dropout"]
 
     model_parameters = []
     for i_num_layers in num_layers:
         for i_num_nodes in num_nodes:
             for i_activation_func in activation_func:
-                model_parameters.append([[i_num_nodes for i in range(i_num_layers)]] + [i_activation_func])
+                for i_batch_norm in batch_norm:
+                    for i_dropout in dropout:
+                        model_parameters.append([[i_num_nodes for i in range(i_num_layers)]] + [i_activation_func] + [i_batch_norm] + [i_dropout])
 
     return model_parameters
 

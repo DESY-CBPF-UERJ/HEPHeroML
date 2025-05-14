@@ -143,12 +143,21 @@ print("Preprocessing input data")
 print("------------------------------------------------------------------------")
 seed = 16
 
-ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True,
-normalization_method=normalization_method)
+ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True, normalization_method=normalization_method)
 
 signal_param = []
 
 stat_values = tools.features_stat(model_type, ds_full_train, ds_full_test, vec_full_train, vec_full_test, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath)
+
+if pca_transformation is not None:
+    if pca_transformation == "standard":
+        ds_full_train_pca, ds_full_test_pca, vec_full_train_pca, vec_full_test_pca, class_names_pca, class_labels_pca, class_colors_pca, reweight_info_pca = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True, normalization_method=normalization_method)
+    elif pca_transformation == "custom":
+        ds_full_train_pca, ds_full_test_pca, vec_full_train_pca, vec_full_test_pca, class_names_pca, class_labels_pca, class_colors_pca, reweight_info_pca = tools.get_sample(input_path, model[N][1], pca_custom_classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True, normalization_method=normalization_method)
+
+    pca_values = tools.features_pca(ds_full_train_pca, variables, var_names, var_use, stat_values, class_names_pca, class_labels_pca, class_colors_pca, plots_outpath)
+
+    stat_values.update(pca_values)
 
 if args.check_flag:
     tools.check_scalars(ds_full_train, variables, var_names, var_use, var_bins, class_names, class_labels, class_colors, plots_outpath)
