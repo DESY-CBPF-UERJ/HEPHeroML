@@ -2,31 +2,19 @@
 
 echo "ProcId"
 echo $1
-echo "HEPML_path"
-echo $2
-echo "HEP_OUTPATH"
-echo $3
 echo "MACHINES"
-echo $4
+echo $2
 echo "TRAINER"
-echo $5
+echo $3
 
-export HEP_OUTPATH=$3
-export MACHINES=$4
+export MACHINES=$2
+ls
 
-if [ "$4" == "CERN" ]; then
-cp -r $2 .
-fi    
-    
-if [ "$4" == "DESY" ]; then
-cd ..
+if [ "$2" == "CERN" ]; then
+source /cvmfs/sft.cern.ch/lcg/views/LCG_105/x86_64-el9-gcc11-opt/setup.sh
+elif [ "$2" == "UERJ" ]; then
+source /cvmfs/sft.cern.ch/lcg/views/LCG_106/x86_64-el8-gcc11-opt/setup.sh
 fi
 
-ls
-source /cvmfs/sft.cern.ch/lcg/views/LCG_105/x86_64-el9-gcc11-opt/setup.sh
-#python -m venv hepenv
-#source hepenv/bin/activate
-cd HEPHeroML
- 
-python $5 -j $1
-
+cd HEPHeroML 
+python $3 -j $1

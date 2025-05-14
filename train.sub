@@ -1,11 +1,12 @@
 executable            = train.sh
-arguments             = $(ProcId) /home/gcorreia/cernbox/HEP_Project/CMS_HHDM/OUTPUT/Test_backup/analysis/ML
+arguments             = $(ProcId) UERJ train_NN_bbZDM_param.py
+transfer_input_files  = /home/gcorreia/work/HEPHeroML.tgz
+should_transfer_files = YES
 output                = condor/train_$(ClusterId)_$(ProcId).out
 error                 = condor/train_$(ClusterId)_$(ProcId).err
 log                   = condor/train_$(ClusterId).log
-+JobFlavour = "workday"
-request_gpus          = 0
-queue 1
++JobFlavour = 
+queue 3
 
 
 

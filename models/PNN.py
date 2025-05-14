@@ -177,7 +177,7 @@ def features_stat_PNN(train_data, test_data, variables, var_names, var_use, clas
     print("dim: " + str(dim))
     print("par_dim: " + str(par_dim))
     print("par_idx: " + str(par_idx))
-    #print("par_points: " + str(par_points))
+    print("par_points: " + str(par_points))
     stat_values={"mean": mean, "std": std, "dim": dim, "par_dim": par_dim, "par_idx": par_idx, "par_points": par_points}
 
 
