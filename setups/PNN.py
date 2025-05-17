@@ -23,7 +23,7 @@ model_type = 'PNN'
 model_parameters = {
     'num_layers': [1, 2],
     'num_nodes': [10],
-    'activation_func': ['elu', 'relu', 'tanh', 'selu', 'gelu'],
+    'activation_func': ['elu', 'relu', 'gelu'],
     'batch_norm': [True, False],
     'dropout': [None, 0.2, 0.5],
     }

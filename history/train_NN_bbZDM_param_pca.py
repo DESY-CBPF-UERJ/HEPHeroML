@@ -19,7 +19,7 @@ import math
 input_path = '/cms/store/user/gcorreia/output/AP_bbZDM_Lep_R2/ML/datasets'
 output_path = '/home/gcorreia/output/AP_bbZDM_Lep_R2/ML/'
 periods = ['0_17']
-tag = 'bbZDM_param'
+tag = 'bbZDM_param_pca'
 
 #--------------------------------------------------------------------------------------------------
 # ML setup
@@ -27,7 +27,7 @@ tag = 'bbZDM_param'
 device = 'cuda' # 'cpu'
 library = 'torch'
 optimizer = ['adam']
-loss_func = ['bce', 'cce']
+loss_func = ['cce']
 learning_rate = [[0.01]]
 
 
@@ -85,7 +85,7 @@ vector_variables = []
 reweight_variables = []
 normalization_method = 'area'
 
-pca_transformation = None #None # "standard", "custom"
+pca_transformation = "custom" #None # "standard", "custom"
 pca_custom_classes = {
 "Signal_param": [[
     "Signal_400_200",

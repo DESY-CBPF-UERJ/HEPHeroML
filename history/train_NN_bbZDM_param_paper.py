@@ -19,7 +19,7 @@ import math
 input_path = '/cms/store/user/gcorreia/output/AP_bbZDM_Lep_R2/ML/datasets'
 output_path = '/home/gcorreia/output/AP_bbZDM_Lep_R2/ML/'
 periods = ['0_17']
-tag = 'bbZDM_param'
+tag = 'bbZDM_param_paper'
 
 #--------------------------------------------------------------------------------------------------
 # ML setup
@@ -36,9 +36,9 @@ learning_rate = [[0.01]]
 #--------------------------------------------------------------------------------------------------
 model_type = 'PNN'
 model_parameters = {
-    'num_layers': [1, 2],
-    'num_nodes': [30, 100],
-    'activation_func': ['elu', 'relu', 'selu', 'gelu'],
+    'num_layers': [5],
+    'num_nodes': [500],
+    'activation_func': ['relu'],
     'batch_norm': [True, False],
     'dropout': [None, 0.2, 0.5],
     }

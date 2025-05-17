@@ -1128,6 +1128,8 @@ def evaluate_models(period, library, tag, outpath_base):
         os.makedirs(best_models_path)
 
     list_signals = os.listdir(os.path.join(outpath_base, period, "ML", library, tag))
+    if 'best_models.csv' in list_signals:
+        list_signals.remove('best_models.csv')
 
     print("#########################################################################################")
     print(library)

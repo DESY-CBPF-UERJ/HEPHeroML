@@ -86,9 +86,10 @@ class build_PNN(nn.Module):
     def stat_device(self, dev):
         self.mean = self.mean.to(dev)
         self.std = self.std.to(dev)
-        self.eigenvectors_pca = self.eigenvectors_pca.to(dev)
-        self.mean_pca = self.mean_pca.to(dev)
-        self.std_pca = self.std_pca.to(dev)
+        if self.apply_pca:
+            self.eigenvectors_pca = self.eigenvectors_pca.to(dev)
+            self.mean_pca = self.mean_pca.to(dev)
+            self.std_pca = self.std_pca.to(dev)
 
     # Prediction
     def forward(self, x):
