@@ -29,6 +29,7 @@ import torch.nn as nn
 from custom_opts.ranger import Ranger
 from models.NN import *
 from models.PNN import *
+from models.APNN import *
 from models.PNET import *
 
 """
@@ -1219,6 +1220,8 @@ def build_model(model_type, parameters, n_classes, stat_values, variables, var_u
         model = build_NN(parameters, variables, n_classes, stat_values, device)
     elif model_type == "PNN":
         model = build_PNN(parameters, variables, n_classes, stat_values, device)
+    elif model_type == "APNN":
+        model = build_APNN(parameters, variables, n_classes, stat_values, device)
     elif model_type == "PNET":
         model = build_PNET(vec_variables, vec_var_use, n_classes, parameters, stat_values, device)
 
@@ -1232,6 +1235,8 @@ def model_parameters(model_type, param_dict):
         model_parameters = model_parameters_NN(param_dict)
     elif model_type == "PNN":
         model_parameters = model_parameters_PNN(param_dict)
+    elif model_type == "APNN":
+        model_parameters = model_parameters_APNN(param_dict)
     elif model_type == "PNET":
         model_parameters = model_parameters_PNET(param_dict)
 
@@ -1245,6 +1250,8 @@ def features_stat(model_type, train_data, test_data, vec_train_data, vec_test_da
         stat_values = features_stat_NN(train_data, test_data, variables, var_names, class_names, class_labels, class_colors, plots_outpath)
     elif model_type == "PNN":
         stat_values = features_stat_PNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath)
+    elif model_type == "APNN":
+        stat_values = features_stat_APNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath)
     elif model_type == "PNET":
         stat_values = features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec_variables, vec_var_names, vec_var_use, class_names, class_labels, class_colors, plots_outpath)
 
@@ -1258,6 +1265,8 @@ def update_model(model_type, model, criterion, parameters, batch_data, stat_valu
         model = update_NN(model, criterion, parameters, batch_data, device)
     elif model_type == "PNN":
         model = update_PNN(model, criterion, parameters, batch_data, stat_values, var_use, device)
+    elif model_type == "APNN":
+        model = update_APNN(model, criterion, parameters, batch_data, stat_values, var_use, device)
     elif model_type == "PNET":
         model = update_PNET(model, criterion, parameters, batch_data, device)
 
@@ -1271,6 +1280,8 @@ def process_data(model_type, scalar_var, vector_var, variables, vec_variables, v
         input_data = process_data_NN(scalar_var, variables)
     elif model_type == "PNN":
         input_data = process_data_PNN(scalar_var, variables)
+    elif model_type == "APNN":
+        input_data = process_data_APNN(scalar_var, variables)
     elif model_type == "PNET":
         input_data = process_data_PNET(scalar_var, vector_var, vec_variables, vec_var_use)
 
@@ -1284,6 +1295,8 @@ def evaluate_model(model_type, input_data, model, i_eval, eval_step_size, criter
         i_eval_output = evaluate_NN(input_data, model, i_eval, eval_step_size, criterion, parameters, device, mode)
     elif model_type == "PNN":
         i_eval_output = evaluate_PNN(input_data, model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, device, mode)
+    elif model_type == "APNN":
+        i_eval_output = evaluate_APNN(input_data, model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, device, mode)
     elif model_type == "PNET":
         i_eval_output = evaluate_PNET(input_data, model, i_eval, eval_step_size, criterion, parameters, device, mode)
 
@@ -1297,6 +1310,8 @@ def feature_score(model_type, input_data, model, min_loss, eval_step_size, crite
         feature_score_info = feature_score_NN(input_data, model, min_loss, eval_step_size, criterion, parameters, variables, var_names, device)
     elif model_type == "PNN":
         feature_score_info = feature_score_PNN(input_data, model, min_loss, eval_step_size, criterion, parameters, variables, var_names, var_use, stat_values, device)
+    elif model_type == "APNN":
+        feature_score_info = feature_score_APNN(input_data, model, min_loss, eval_step_size, criterion, parameters, variables, var_names, var_use, stat_values, device)
     elif model_type == "PNET":
         feature_score_info = feature_score_PNET(input_data, model, min_loss, eval_step_size, criterion, parameters, vec_variables, vec_var_use, vec_var_names, device)
 
@@ -1310,6 +1325,8 @@ def save_model(model_type, model, model_outpath, dim, device):
         save_NN(model, model_outpath, dim, device)
     elif model_type == "PNN":
         save_PNN(model, model_outpath, dim, device)
+    elif model_type == "APNN":
+        save_APNN(model, model_outpath, dim, device)
     elif model_type == "PNET":
         save_PNET(model, model_outpath, dim, device)
 
