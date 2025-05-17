@@ -15,6 +15,47 @@ from custom_opts.ranger import Ranger
 import tools
 import random
 
+class AffineConditioning(nn.Module):
+    def __init__(self, input_dim, par_dim, output_dim, BatchNorm=False, Dropout=None, activation_func="relu"):
+        super(AffineConditioning, self).__init__()
+        self.apply_BatchNorm = BatchNorm
+        if BatchNorm:
+            self.BatchNorm = nn.BatchNorm1d(output_dim)
+
+        self.apply_Dropout = False
+        if Dropout is not None:
+            self.apply_Dropout = True
+            self.Dropout = nn.Dropout(p=Dropout)
+
+        if activation_func == 'relu':
+            self.activation_hidden = nn.ReLU()
+        elif activation_func == 'tanh':
+            self.activation_hidden = nn.Tanh()
+        elif activation_func == 'elu':
+            self.activation_hidden = nn.ELU()
+        elif activation_func == 'gelu':
+            self.activation_hidden = nn.GELU()
+        elif activation_func == 'selu':
+            self.activation_hidden = nn.SELU()
+        else:
+            print("Error: hidden activation function not supported!")
+        
+        self.linear_h = nn.Linear(input_dim, output_dim)
+        self.linear_s = nn.Linear(par_dim, output_dim)
+        self.linear_b = nn.Linear(par_dim, output_dim)
+    
+    def forward(self, x, par):
+        x = self.linear_h(x) 
+        if self.apply_BatchNorm:
+            x = self.BatchNorm(x)
+        x = self.activation_hidden(x)
+        s = self.linear_s(par)
+        b = self.linear_b(par)
+        x = x*s+b
+        if self.apply_Dropout:
+            x = self.Dropout(x)
+            
+        return x
 
 #==================================================================================================
 class build_APNN(nn.Module):
@@ -43,29 +84,6 @@ class build_APNN(nn.Module):
                 self.mean_pca = torch.tensor(stat_values["mean_pca"], dtype=torch.float32)
                 self.std_pca = torch.tensor(stat_values["std_pca"], dtype=torch.float32)
 
-        if parameters[7][1] == 'relu':
-            self.activation_hidden = nn.ReLU()
-        elif parameters[7][1] == 'tanh':
-            self.activation_hidden = nn.Tanh()
-        elif parameters[7][1] == 'elu':
-            self.activation_hidden = nn.ELU()
-        elif parameters[7][1] == 'gelu':
-            self.activation_hidden = nn.GELU()
-        elif parameters[7][1] == 'selu':
-            self.activation_hidden = nn.SELU()
-        else:
-            print("Error: hidden activation function not supported!")
-
-        self.apply_BatchNorm = False
-        if parameters[7][2]:
-            self.apply_BatchNorm = True
-            self.BatchNorm = nn.BatchNorm1d(parameters[7][0][0])
-
-        self.apply_Dropout = False
-        if parameters[7][3] is not None:
-            self.apply_Dropout = True
-            self.Dropout = nn.Dropout(p=parameters[7][3])
-
         if parameters[4] == 'cce':
             self.activation_last = nn.Softmax(dim=1)
             n_output = n_classes
@@ -78,25 +96,20 @@ class build_APNN(nn.Module):
         self.par_dim = stat_values["par_dim"]
         self.input_dim = n_var - self.par_dim
         self.hidden = nn.ModuleList()
-        self.linear_scaling = nn.ModuleList()
-        self.linear_biasing = nn.ModuleList()
         for i in range(len(parameters[7][0])):
             if i == 0:
-                self.hidden.append(nn.Linear(self.input_dim, parameters[7][0][i]))
-                self.linear_scaling.append(nn.Linear(self.par_dim, parameters[7][0][i]))
-                self.linear_biasing.append(nn.Linear(self.par_dim, parameters[7][0][i]))
+                self.hidden.append(AffineConditioning(self.input_dim, self.par_dim, parameters[7][0][i], BatchNorm=parameters[7][2], Dropout=parameters[7][3], activation_func=parameters[7][1]))
             if i > 0:
-                self.hidden.append(nn.Linear(parameters[7][0][i-1], parameters[7][0][i]))
-                self.linear_scaling.append(nn.Linear(parameters[7][0][i-1], parameters[7][0][i]))
-                self.linear_biasing.append(nn.Linear(parameters[7][0][i-1], parameters[7][0][i]))
+                self.hidden.append(AffineConditioning(parameters[7][0][i-1], self.par_dim, parameters[7][0][i], BatchNorm=parameters[7][2], Dropout=parameters[7][3], activation_func=parameters[7][1]))
         self.hidden.append(nn.Linear(parameters[7][0][-1], n_output))
 
     def stat_device(self, dev):
         self.mean = self.mean.to(dev)
         self.std = self.std.to(dev)
-        self.eigenvectors_pca = self.eigenvectors_pca.to(dev)
-        self.mean_pca = self.mean_pca.to(dev)
-        self.std_pca = self.std_pca.to(dev)
+        if self.apply_pca:
+            self.eigenvectors_pca = self.eigenvectors_pca.to(dev)
+            self.mean_pca = self.mean_pca.to(dev)
+            self.std_pca = self.std_pca.to(dev)
 
     # Prediction
     def forward(self, x):
@@ -107,21 +120,13 @@ class build_APNN(nn.Module):
             x = torch.matmul(x, self.eigenvectors_pca)
             x = (x - self.mean_pca) / self.std_pca
 
-         = x[self.input_dim:-1]
-        x = x[0:self.input_dim]
+        par = x[:,self.input_dim:]
+        x = x[:,:self.input_dim]
 
         N_layers = len(self.hidden)
-        for i, (layer,scaling,biasing) in enumerate(zip(self.hidden,self.linear_scaling,self.linear_biasing)):
+        for i, layer in enumerate(self.hidden):
             if i < N_layers-1:
-                x = layer(x) # Unit dependent
-                if self.apply_BatchNorm:
-                    x = self.BatchNorm(x)
-                x = self.activation_hidden(x)
-                s = scaling(par)
-                b = biasing(par)
-                x = x*s+b
-                if self.apply_Dropout:
-                    x = self.Dropout(x)
+                x = layer(x, par) 
             else:
                 x = layer(x)
                 x = self.activation_last(x)
