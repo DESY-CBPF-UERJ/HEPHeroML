@@ -1,3 +1,138 @@
+import sys
+import numpy as np
+import pandas as pd
+import os
+import time
+from tqdm import tqdm
+import concurrent.futures as cf
+import argparse
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gs
+from matplotlib.ticker import AutoMinorLocator
+import json
+import tools
+
+#-------------------------------------------------------------------------------------
+# General Setup
+#-------------------------------------------------------------------------------------
+input_path = "/workarea/datasets"
+output_path = '/home/gcorreia/ML'
+periods = ['0_22']
+tag = 'HOTVR_Jets'
+
+#-------------------------------------------------------------------------------------
+# ML setup
+#-------------------------------------------------------------------------------------
+device = 'cuda'
+library = 'torch'
+optimizer = ['ranger']
+loss_func = ['bce', 'cce']
+learning_rate = [[0.1, 0.01, 0.001], [0.01]]
+
+#-------------------------------------------------------------------------------------
+# Models setup
+#-------------------------------------------------------------------------------------
+model_type = 'PNET'
+model_parameters = {
+    'conv_params': [16, 64, 128, 256],
+    'fc_params': [256, 0.1]
+    }
+
+#-------------------------------------------------------------------------------------
+# Training setup
+#-------------------------------------------------------------------------------------
+batch_size = [300]
+load_size_stat = 50000
+load_size_training = 5000
+num_load_for_check = 10
+train_frac = 0.5
+eval_step_size = 250
+num_max_iterations = 10000
+early_stopping = 20
+initial_model_path = None
+
+#-------------------------------------------------------------------------------------
+# Inputs setup
+#-------------------------------------------------------------------------------------
+feature_info = True
+
+scalar_variables = [
+    ['jet_pt', 'Jet_pt', 'F'],
+    ['jet_mass', 'Jet_mass', 'F'],
+    ]
+
+vector_variables = [
+    ['jetPFcand_abseta', 'PFcand_abseta', 'F'],
+    ['jetPFcand_pt_log', 'PFcand_pt_log', 'F'],
+    ['jetPFcand_energy_log', 'PFcand_energy_log', 'F'],
+    ['jetPFcand_dxy', 'PFcand_dxy', 'F'],
+    ['jetPFcand_dxysig', 'PFcand_dxysig', 'F'],
+    ['jetPFcand_dz', 'PFcand_dz', 'F'],
+    ['jetPFcand_dzsig', 'PFcand_dzsig', 'F'],
+    ['jetPFcand_deta', 'PFcand_deta', 'FP'],
+    ['jetPFcand_dphi', 'PFcand_dphi', 'FP'],
+    ['jetPFcand_frompv', 'PFcand_frompv', 'F'],
+    ['jetPFcand_charge', 'PFcand_charge', 'F'],
+    ['jetPFcand_track_qual', 'PFcand_track_qual', 'F'],
+    ['jetPFcand_track_chi2', 'PFcand_track_chi2', 'F'],
+    ['jetPFcand_nhits', 'PFcand_nhits', 'F'],
+    ['jetPFcand_nlosthits', 'PFcand_nlosthits', 'F'],
+    ['jetSV_pt_log', 'SV_pt_log', 'F'],
+    ['jetSV_abseta', 'SV_abseta', 'F'],
+    ['jetSV_mass', 'SV_mass', 'F'],
+    ['jetSV_deta', 'SV_deta', 'FP'],
+    ['jetSV_dphi', 'SV_dphi', 'FP'],
+    ['jetSV_chi2', 'SV_chi2', 'F'],
+    ['jetSV_dxy', 'SV_dxy', 'F'],
+    #['jetSV_dxysig', 'SV_dxysig', 'F'],
+    ['jetSV_d3d', 'SV_d3d', 'F'],
+    #['jetSV_d3dsig', 'SV_d3dsig', 'F'],
+    ['jetSV_ntrack', 'SV_ntrack', 'F']
+    ]
+
+#-------------------------------------------------------------------------------------
+# Preprocessing setup
+#-------------------------------------------------------------------------------------
+reweight_variables = [
+    #['jet_pt', [200, 250, 300, 350, 400, 1000]]
+    #['jet_pt', [200, 220, 260, 340, 420, 500, 580, 660, 740,  820, 999999999]],#, 997, 1255, 1579, 1987, 2500]],
+    ]
+
+normalization_method = 'area'
+
+#-------------------------------------------------------------------------------------
+# Classes setup
+#-------------------------------------------------------------------------------------
+classes = {
+    'Signal_sample': [[
+        'Zto2Q_PTQQ-100to200_1J',
+        'Zto2Q_PTQQ-200to400_1J',
+        'Zto2Q_PTQQ-400to600_1J',
+        'Zto2Q_PTQQ-600_1J',
+        #'Zto2Q_PTQQ-100to200_2J',
+        #'Zto2Q_PTQQ-200to400_2J',
+        #'Zto2Q_PTQQ-400to600_2J',
+        #'Zto2Q_PTQQ-600_2J'
+        ], 'scalars', 'flat', 'Signal', 'green'],
+    'Background': [[
+        #'QCD_PT-15to30',
+        #'QCD_PT-30to50',
+        #'QCD_PT-50to80',
+        'QCD_PT-80to120',
+        'QCD_PT-120to170',
+        'QCD_PT-170to300',
+        'QCD_PT-300to470',
+        'QCD_PT-470to600',
+        'QCD_PT-600to800',
+        'QCD_PT-800to1000',
+        #'QCD_PT-1000to1400',
+        #'QCD_PT-1400to1800',
+        #'QCD_PT-1800to2400',
+        #'QCD_PT-2400to3200',
+        #'QCD_PT-3200'
+        ], 'scalars', 'flat', 'Background', 'red']}
+
+
 #-------------------------------------------------------------------------------------
 # [DO NOT TOUCH THIS PART]
 #-------------------------------------------------------------------------------
@@ -7,14 +142,12 @@ parser.add_argument("--check", dest='check_flag', action='store_true')
 parser.set_defaults(check_flag=False)
 parser.add_argument("--clean", dest='clean_flag', action='store_true')
 parser.set_defaults(clean_flag=False)
-parser.add_argument("--evaluate", dest='evaluate_flag', action='store_true')
-parser.set_defaults(evaluate_flag=False)
 
 args = parser.parse_args()
 
 
 #===============================================================================
-# MODELS LIST
+# CHECK ARGUMENT
 #===============================================================================
 has_signal_list = False
 N_signal_points = 1
@@ -47,24 +180,6 @@ for i_signal in range(N_signal_points):
                             i_job += 1
                             #model[:][2] (Signal_class) is not used anywhere
 
-
-#===============================================================================
-# EVALUATE MODELS
-#===============================================================================
-if args.evaluate_flag:
-    for i_period in periods:
-        print("==================================")
-        print(i_period)
-        print("==================================")
-        print(" ")
-        print(" ")
-        tools.evaluate_models(i_period, library, tag, output_path, modelName, model)
-    sys.exit()
-
-
-#===============================================================================
-# CHECK ARGUMENT
-#===============================================================================
 N = int(args.job)
 if N == -1:
     print("")
@@ -84,7 +199,6 @@ if N_signal_points == 1:
     signal_tag = Signal_class
 else:
     signal_tag = classes[Signal_class][0][N_signal]
-
 
 #===============================================================================
 # Output setup
@@ -148,21 +262,12 @@ print("Preprocessing input data")
 print("------------------------------------------------------------------------")
 seed = 16
 
-ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True, normalization_method=normalization_method)
+ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True,
+normalization_method=normalization_method)
 
 signal_param = []
 
 stat_values = tools.features_stat(model_type, ds_full_train, ds_full_test, vec_full_train, vec_full_test, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath)
-
-if pca_transformation is not None:
-    if pca_transformation == "standard":
-        ds_full_train_pca, ds_full_test_pca, vec_full_train_pca, vec_full_test_pca, class_names_pca, class_labels_pca, class_colors_pca, reweight_info_pca = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True, normalization_method=normalization_method)
-    elif pca_transformation == "custom":
-        ds_full_train_pca, ds_full_test_pca, vec_full_train_pca, vec_full_test_pca, class_names_pca, class_labels_pca, class_colors_pca, reweight_info_pca = tools.get_sample(input_path, model[N][1], pca_custom_classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True, normalization_method=normalization_method)
-
-    pca_values = tools.features_pca(ds_full_train_pca, variables, var_names, var_use, stat_values, class_names_pca, class_labels_pca, class_colors_pca, plots_outpath)
-
-    stat_values.update(pca_values)
 
 if args.check_flag:
     tools.check_scalars(ds_full_train, variables, var_names, var_use, var_bins, class_names, class_labels, class_colors, plots_outpath)

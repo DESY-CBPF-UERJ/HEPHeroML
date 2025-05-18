@@ -1121,7 +1121,12 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
 
 
 #=====================================================================================================================
-def evaluate_models(period, library, tag, outpath_base):
+def evaluate_models(period, library, tag, outpath_base, modelNames_submitted, models_submitted):
+
+    models_submitted = [model[3:] for model in models_submitted]
+
+    print(modelNames_submitted)
+    print(models_submitted)
 
     best_models_path = os.path.join(outpath_base, period, "ML", "best_models")
     if not os.path.exists(best_models_path):
