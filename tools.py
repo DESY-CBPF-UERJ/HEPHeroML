@@ -1125,8 +1125,9 @@ def evaluate_models(period, library, tag, outpath_base, modelNames_submitted, mo
 
     models_submitted = [model[3:] for model in models_submitted]
 
-    print(modelNames_submitted)
-    print(models_submitted)
+    models_dict = dict(zip(modelNames_submitted, models_submitted))
+
+    print(models_dict)
 
     best_models_path = os.path.join(outpath_base, period, "ML", "best_models")
     if not os.path.exists(best_models_path):
@@ -1152,6 +1153,7 @@ def evaluate_models(period, library, tag, outpath_base, modelNames_submitted, mo
         models_accuracy = []
         models_iterations = []
         models_name = []
+        models_hyperparameters = []
         for model in list_models:
             #print(model)
             training_file = os.path.join(ml_outpath, signal, "models", model, "training.csv")
@@ -1164,9 +1166,10 @@ def evaluate_models(period, library, tag, outpath_base, modelNames_submitted, mo
                         models_accuracy.append(np.array(df_training[df_training["test_loss"] == min_loss]["test_acc"])[-1])
                         models_iterations.append(np.array(df_training[df_training["test_loss"] == min_loss]["iteration"])[-1])
                         models_name.append(model)
-        df_training = pd.DataFrame({"Model": models_name, "Loss": models_loss, "Accuracy": models_accuracy, "Iterations": models_iterations})
+                        models_hyperparameters.append(models_dict[model])
+        df_training = pd.DataFrame({"Model": models_name, "Loss": models_loss, "Accuracy": models_accuracy, "Iterations": models_iterations}, "Hyperparameters": models_hyperparameters)
         df_training = df_training.sort_values("Loss")
-        df_training = df_training.reset_index()
+        df_training = df_training.reset_index(drop=True)
 
         #best_model_dir = os.path.join(ml_outpath, signal, "models", df_training.loc[0]["Model"])
         #signal_dir = os.path.join(ml_outpath, signal)
