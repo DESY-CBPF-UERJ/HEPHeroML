@@ -152,7 +152,7 @@ def model_parameters_APNN(param_dict):
 
 
 #==================================================================================================
-def features_stat_APNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath):
+def features_stat_APNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, load_it=None):
 
     train_data = pd.DataFrame.from_dict(train_data)
     test_data = pd.DataFrame.from_dict(test_data)
@@ -224,12 +224,13 @@ def features_stat_APNN(train_data, test_data, variables, var_names, var_use, cla
         mean.append(weighted_stats.mean)
         std.append(weighted_stats.std)
     np.set_printoptions(legacy='1.25')
-    print("mean: " + str(mean))
-    print("std: " + str(std))
-    print("dim: " + str(dim))
-    print("par_dim: " + str(par_dim))
-    print("par_idx: " + str(par_idx))
-    print("par_points: " + str(par_points))
+    if load_it is None:
+        print("mean: " + str(mean))
+        print("std: " + str(std))
+        print("dim: " + str(dim))
+        print("par_dim: " + str(par_dim))
+        print("par_idx: " + str(par_idx))
+        print("par_points: " + str(par_points))
     stat_values={"mean": mean, "std": std, "dim": dim, "par_dim": par_dim, "par_idx": par_idx, "par_points": par_points}
 
 
@@ -240,7 +241,7 @@ def features_stat_APNN(train_data, test_data, variables, var_names, var_use, cla
         ax1 = plt.subplot(gs1[0])
         #==================================================
         var = variables[ivar]
-        bins = np.linspace(mean[ivar]-2.5*std[ivar],mean[ivar]+2.5*std[ivar],51)
+        bins = np.linspace(mean[ivar]-5*std[ivar],mean[ivar]+5*std[ivar],51)
         for ikey in range(len(class_names)):
             tools.step_plot( ax1, var, train_data[train_data["class"] == ikey], label=class_labels[ikey]+" (train)", color=class_colors[ikey], weight="mvaWeight", bins=bins, error=True )
             tools.step_plot( ax1, var, test_data[test_data["class"] == ikey], label=class_labels[ikey]+" (test)", color=class_colors[ikey], weight="mvaWeight", bins=bins, error=True, linestyle='dotted' )
@@ -259,8 +260,12 @@ def features_stat_APNN(train_data, test_data, variables, var_names, var_use, cla
         ax1.legend(numpoints=1, ncol=2, prop={'size': 10.5}, frameon=False)
 
         plt.subplots_adjust(left=0.09, bottom=0.115, right=0.97, top=0.95, wspace=0.18, hspace=0.165)
-        plt.savefig(os.path.join(plots_outpath, var + '.png'), dpi=400)
-        plt.savefig(os.path.join(plots_outpath, var + '.pdf'))
+        if load_it is None:
+            plt.savefig(os.path.join(plots_outpath, var + '.png'), dpi=400)
+            plt.savefig(os.path.join(plots_outpath, var + '.pdf'))
+        else:
+            plt.savefig(os.path.join(plots_outpath, var +"_"+ str(load_it) + '.png'), dpi=400)
+            plt.savefig(os.path.join(plots_outpath, var +"_"+ str(load_it) + '.pdf'))
         plt.close()
 
     return stat_values

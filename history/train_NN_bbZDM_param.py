@@ -27,7 +27,7 @@ tag = 'bbZDM_param'
 device = 'cuda' # 'cpu'
 library = 'torch'
 optimizer = ['adam']
-loss_func = ['bce', 'cce']
+loss_func = ['bce']
 learning_rate = [[0.01]]
 
 
@@ -37,8 +37,8 @@ learning_rate = [[0.01]]
 model_type = 'PNN'
 model_parameters = {
     'num_layers': [1, 2],
-    'num_nodes': [30, 100],
-    'activation_func': ['elu', 'relu', 'selu', 'gelu'],
+    'num_nodes': [50, 100],
+    'activation_func': ['elu', 'relu', 'gelu'],
     'batch_norm': [True, False],
     'dropout': [None, 0.2, 0.5],
     }
@@ -205,21 +205,7 @@ args = parser.parse_args()
 
 
 #===============================================================================
-# EVALUATE MODELS
-#===============================================================================
-if args.evaluate_flag:
-    for i_period in periods:
-        print("==================================")
-        print(i_period)
-        print("==================================")
-        print(" ")
-        print(" ")
-        tools.evaluate_models(i_period, library, tag, output_path)
-    sys.exit()
-
-
-#===============================================================================
-# CHECK ARGUMENT
+# MODELS LIST
 #===============================================================================
 has_signal_list = False
 N_signal_points = 1
@@ -252,6 +238,24 @@ for i_signal in range(N_signal_points):
                             i_job += 1
                             #model[:][2] (Signal_class) is not used anywhere
 
+
+#===============================================================================
+# EVALUATE MODELS
+#===============================================================================
+if args.evaluate_flag:
+    for i_period in periods:
+        print("==================================")
+        print(i_period)
+        print("==================================")
+        print(" ")
+        print(" ")
+        tools.evaluate_models(i_period, library, tag, output_path, modelName, model)
+    sys.exit()
+
+
+#===============================================================================
+# CHECK ARGUMENT
+#===============================================================================
 N = int(args.job)
 if N == -1:
     print("")
@@ -271,6 +275,7 @@ if N_signal_points == 1:
     signal_tag = Signal_class
 else:
     signal_tag = classes[Signal_class][0][N_signal]
+
 
 #===============================================================================
 # Output setup
@@ -716,4 +721,3 @@ print("-------------------------------------------------------------------------
 print("Total process duration: " + str(hours) + " hours " + str(minutes) + " minutes " + str(seconds) + " seconds")
 print("-----------------------------------------------------------------------------------")
 print("")
-

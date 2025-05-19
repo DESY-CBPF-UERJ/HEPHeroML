@@ -135,7 +135,7 @@ def model_parameters_NN(param_dict):
 
 
 #==================================================================================================
-def features_stat_NN(train_data, test_data, variables, var_names, class_names, class_labels, class_colors, plots_outpath):
+def features_stat_NN(train_data, test_data, variables, var_names, class_names, class_labels, class_colors, plots_outpath, load_it=None):
 
     train_data = pd.DataFrame.from_dict(train_data)
     test_data = pd.DataFrame.from_dict(test_data)
@@ -148,9 +148,10 @@ def features_stat_NN(train_data, test_data, variables, var_names, class_names, c
         mean.append(weighted_stats.mean)
         std.append(weighted_stats.std)
     np.set_printoptions(legacy='1.25')
-    print("mean: " + str(mean))
-    print("std: " + str(std))
-    print("dim: " + str(dim))
+    if load_it is None:
+        print("mean: " + str(mean))
+        print("std: " + str(std))
+        print("dim: " + str(dim))
     stat_values={"mean": mean, "std": std, "dim": dim}
 
 
@@ -181,8 +182,12 @@ def features_stat_NN(train_data, test_data, variables, var_names, class_names, c
         ax1.legend(numpoints=1, ncol=2, prop={'size': 10.5}, frameon=False)
 
         plt.subplots_adjust(left=0.09, bottom=0.115, right=0.97, top=0.95, wspace=0.18, hspace=0.165)
-        plt.savefig(os.path.join(plots_outpath, var + '.png'), dpi=400)
-        plt.savefig(os.path.join(plots_outpath, var + '.pdf'))
+        if load_it is None:
+            plt.savefig(os.path.join(plots_outpath, var + '.png'), dpi=400)
+            plt.savefig(os.path.join(plots_outpath, var + '.pdf'))
+        else:
+            plt.savefig(os.path.join(plots_outpath, var +"_"+ str(load_it) + '.png'), dpi=400)
+            plt.savefig(os.path.join(plots_outpath, var +"_"+ str(load_it) + '.pdf'))
         plt.close()
 
     return stat_values

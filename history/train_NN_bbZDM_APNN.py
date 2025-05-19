@@ -1,3 +1,194 @@
+import sys
+import numpy as np
+import pandas as pd
+import os
+import time
+from tqdm import tqdm
+import concurrent.futures as cf
+import argparse
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gs
+from matplotlib.ticker import AutoMinorLocator
+import json
+import tools
+import math
+
+#-------------------------------------------------------------------------------------
+# General Setup
+#-------------------------------------------------------------------------------------
+input_path = '/cms/store/user/gcorreia/output/AP_bbZDM_Lep_R2/ML/datasets'
+output_path = '/home/gcorreia/output/AP_bbZDM_Lep_R2/ML/'
+periods = ['0_17']
+tag = 'bbZDM_APNN'
+
+#--------------------------------------------------------------------------------------------------
+# ML setup
+#--------------------------------------------------------------------------------------------------
+device = 'cuda' # 'cpu'
+library = 'torch'
+optimizer = ['adam']
+loss_func = ['bce']
+learning_rate = [[0.01]]
+
+
+#--------------------------------------------------------------------------------------------------
+# Models setup
+#--------------------------------------------------------------------------------------------------
+model_type = 'APNN'
+model_parameters = {
+    'affine_setups': [[300, 150, 100, 50], [100, 50]],
+    'activation_func': ['gelu', 'elu', 'relu'],
+    'batch_norm': [True, False],
+    'dropout': [None, 0.2, 0.5],
+    }
+
+#-------------------------------------------------------------------------------------
+# Training setup
+#-------------------------------------------------------------------------------------
+batch_size = [5000]
+load_size_stat = 1000000000
+load_size_training = 100000
+num_load_for_check = 1
+train_frac = 0.5
+eval_step_size = 1000
+eval_interval = 1
+num_max_iterations = 10000
+early_stopping = 40
+initial_model_path = None
+
+#-------------------------------------------------------------------------------------
+# Inputs setup
+#-------------------------------------------------------------------------------------
+feature_info = False
+
+scalar_variables = [
+    #['jet_pt', 'Jet_pt', 'F'], 
+    #['jet_mass', 'Jet_mass', 'F']
+    ["LeadingLep_pt",           r"$\mathrm{leading}\,p_\mathrm{T}^\mathrm{l}$",  "F"],
+    ["TrailingLep_pt",          r"$\mathrm{trailing}\,p_\mathrm{T}^\mathrm{l}$", "F"],
+    ["LepLep_pt",               r"$p_\mathrm{T}^\mathrm{ll}$",                   "F"],
+    ["LepLep_deltaR",           r"$\Delta R^\mathrm{ll}$",                       "F"],
+    ["LepLep_deltaM",           r"$\Delta M^\mathrm{ll}$",                       "F"],
+    ["MET_pt",                  r"$E_\mathrm{T}^\mathrm{miss}$",                 "F"],
+    ["MET_LepLep_Mt",           r"$M_\mathrm{T}^\mathrm{ll,MET}$",               "F"],
+    ["MET_LepLep_deltaPhi",     r"$\Delta \phi^\mathrm{ll,MET}$",                "F"],
+    ["MT2LL",                   r"$M_\mathrm{T2}^\mathrm{ll}$",                  "F"],
+    ["m_H",                     r"$m_H$",                                        [0]],
+    ["m_a",                     r"$m_a$",                                        [0]],
+]
+
+vector_variables = []
+
+#-------------------------------------------------------------------------------------
+# Preprocessing setup
+#-------------------------------------------------------------------------------------
+reweight_variables = []
+normalization_method = 'area'
+
+pca_transformation = None #None # "standard", "custom"
+pca_custom_classes = {
+"Signal_param": [[
+    "Signal_400_200",
+    "Signal_500_300",
+    "Signal_600_400",
+    ], "normal", "equal", "Signal", "green"],
+"Background": [[
+    "DYJetsToLL_Pt-0To3",
+    "DYJetsToLL_PtZ-3To50",
+    "DYJetsToLL_PtZ-50To100",
+    "DYJetsToLL_PtZ-100To250",
+    "DYJetsToLL_PtZ-250To400",
+    "DYJetsToLL_PtZ-400To650",
+    "DYJetsToLL_PtZ-650ToInf",
+    "TTTo2L2Nu",
+    "TTToSemiLeptonic",
+    "ST_tW_antitop",
+    "ST_tW_top",
+    "ST_s-channel",
+    "ST_t-channel_top",
+    "ST_t-channel_antitop",
+    "WZTo3LNu",
+    "ZZTo4L",
+    "ZZTo2L2Nu",
+    ], "normal", "evtsum", "Background", "red"],
+}
+
+#-------------------------------------------------------------------------------------
+# Classes setup
+#-------------------------------------------------------------------------------------
+classes = {
+#<class_name>: [[<list_of_processes>], <mode>, <combination>, <label>, <color>]
+"Signal_param": [[
+    "Signal_1000_100",
+    "Signal_1000_200",
+    "Signal_1000_300",
+    "Signal_1000_400",
+    "Signal_1000_600",
+    "Signal_1000_800",
+    "Signal_400_100",
+    "Signal_400_200",
+    "Signal_500_100",
+    "Signal_500_200",
+    "Signal_500_300",
+    "Signal_600_100",
+    "Signal_600_200",
+    "Signal_600_300",
+    "Signal_600_400",
+    "Signal_800_100",
+    "Signal_800_200",
+    "Signal_800_300",
+    "Signal_800_400",
+    "Signal_800_600",
+    #"Signal_1400_100",
+    #"Signal_1400_400",
+    #"Signal_1400_600",
+    #"Signal_1400_1000",
+    #"Signal_1400_1200",
+    #"Signal_2000_100",
+    #"Signal_2000_400",
+    #"Signal_2000_600",
+    #"Signal_2000_1000",
+    #"Signal_2000_1200",
+    #"Signal_2000_1800",
+    ], "normal", "equal", "Signal", "green"],
+"Background": [[
+    "DYJetsToLL_Pt-0To3",
+    "DYJetsToLL_PtZ-3To50",
+    "DYJetsToLL_PtZ-50To100",
+    "DYJetsToLL_PtZ-100To250",
+    "DYJetsToLL_PtZ-250To400",
+    "DYJetsToLL_PtZ-400To650",
+    "DYJetsToLL_PtZ-650ToInf",
+    "TTTo2L2Nu",
+    "TTToSemiLeptonic",
+    "ST_tW_antitop",
+    "ST_tW_top",
+    "ST_s-channel",
+    "ST_t-channel_top",
+    "ST_t-channel_antitop",
+    "WZTo3LNu",
+    "ZZTo4L",
+    "ZZTo2L2Nu",
+    "WZZ",
+    "WWZ",
+    "ZZZ",
+    "WWW",
+    "TTWZ",
+    "TTZZ",
+    "TTWW",
+    "TTWJetsToLNu",
+    "TTWJetsToQQ",
+    "TTZToQQ",
+    "TTZToLL",
+    "TTZToNuNu",
+    "tZq_ll",
+    "WWTo2L2Nu",
+    "WZTo2Q2L",
+    "ZZTo2Q2L",
+    ], "normal", "evtsum", "Background", "red"],
+}
+
+
 #-------------------------------------------------------------------------------------
 # [DO NOT TOUCH THIS PART]
 #-------------------------------------------------------------------------------

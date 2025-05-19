@@ -78,7 +78,7 @@ def model_parameters_PNET(param_dict):
 
 
 #==================================================================================================
-def features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec_variables, vec_var_names, vec_var_use, class_names, class_labels, class_colors, plots_outpath):
+def features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec_variables, vec_var_names, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=None):
 
     vec_train_info = {}
     vec_test_info = {}
@@ -119,9 +119,10 @@ def features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec
         vec_std.append(type_std)
         dim.append((len(vec_mean[k]),vec_train_shapes[k][1]))
     np.set_printoptions(legacy='1.25')
-    print("mean: " + str(vec_mean))
-    print("std: " + str(vec_std))
-    print("dim: " + str(dim))
+    if load_it is None:
+        print("mean: " + str(vec_mean))
+        print("std: " + str(vec_std))
+        print("dim: " + str(dim))
     stat_values={"mean": vec_mean, "std": vec_std, "dim": dim}
 
 
@@ -136,7 +137,7 @@ def features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec
                 ax1 = plt.subplot(gs1[0])
                 #==================================================
                 var = vec_variables[ivar]
-                bins = np.linspace(vec_mean[k][kvar]-2.5*vec_std[k][kvar],vec_mean[k][kvar]+2.5*vec_std[k][kvar],51)
+                bins = np.linspace(vec_mean[k][kvar]-5*vec_std[k][kvar],vec_mean[k][kvar]+5*vec_std[k][kvar],51)
                 for ikey in range(len(class_names)):
 
                     data_var = {vec_variables[ivar]: vec_train_data[vec_variables[ivar]], 'mvaWeight': ((np.ones(vec_train_shapes[k]).T*np.array(train_data["mvaWeight"])).T).flatten(), 'class': ((np.ones(vec_train_shapes[k]).T*np.array(train_data["class"])).T).flatten(), 'mask': ds_mask_train[k]}
@@ -164,8 +165,12 @@ def features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec
                 ax1.legend(numpoints=1, ncol=2, prop={'size': 10.5}, frameon=False)
 
                 plt.subplots_adjust(left=0.09, bottom=0.115, right=0.97, top=0.95, wspace=0.18, hspace=0.165)
-                plt.savefig(os.path.join(plots_outpath, var + '.png'), dpi=400)
-                plt.savefig(os.path.join(plots_outpath, var + '.pdf'))
+                if load_it is None:
+                    plt.savefig(os.path.join(plots_outpath, var + '.png'), dpi=400)
+                    plt.savefig(os.path.join(plots_outpath, var + '.pdf'))
+                else:
+                    plt.savefig(os.path.join(plots_outpath, var +"_"+ str(load_it) + '.png'), dpi=400)
+                    plt.savefig(os.path.join(plots_outpath, var +"_"+ str(load_it) + '.pdf'))
                 plt.close()
 
                 kvar += 1

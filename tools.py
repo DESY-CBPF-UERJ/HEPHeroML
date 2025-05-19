@@ -44,25 +44,6 @@ from models.PNET import *
 """
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #=====================================================================================================================
 def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_it, reweight_info, features=[], vec_features=[], verbose=False, normalization_method="evtsum"):
 
@@ -175,7 +156,6 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
         #print("datasets_train_limits", datasets_train_limits)
         #print("datasets_test_limits", datasets_test_limits)
 
-
         if verbose:
             info_df = pd.DataFrame({
                 'Dataset Name': datasets_names,
@@ -187,7 +167,6 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
             })
             print(info_df)
             print(" ")
-
 
         #=================================================================================
 
@@ -281,15 +260,7 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
                     datasets_vec[class_name][variable] = 0
                 del datasets_vec
 
-
-
-
-
-
-
-
-
-
+            
             #==========================================================================
             # REWEIGHT PART
             if len(reweight_info) > 0:
@@ -383,13 +354,6 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
             #dataset['mvaWeight'] = dataset['mvaWeight']/dataset['mvaWeight'].sum()
 
 
-
-
-
-
-
-
-
             #==========================================================================
             if it == 0:
                 dataset_train = dataset.copy()
@@ -457,32 +421,11 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
     if len(reweight_info) > 0 and not has_weights:
         reweight_info.append(["var_weights", var_weights])
     del dataset_train, dataset_test, dataset_vec_train, dataset_vec_test
-
+    
     return ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#=====================================================================================================================
 def check_scalars(train_data, variables, var_names, var_use, var_bins, class_names, class_labels, class_colors, plots_outpath):
 
     train_data = pd.DataFrame.from_dict(train_data)
@@ -565,10 +508,6 @@ def join_datasets(ds, new_name, input_list, check_list, mode="scalars", combinat
                     ds[new_name][variable] = np.concatenate((ds[new_name][variable],dataset[variable]))
             first = False
         good_list = True
-
-
-
-
 
     else:
         print("Type of the items is not supported!")
@@ -937,7 +876,7 @@ def batch_generator(data, batch_size):
 
 
 #=====================================================================================================================
-def train_model(input_path, N_signal, train_frac, load_size, parameters, variables, var_names, var_use, classes, reweight_info, n_iterations = 5000, mode = "torch", stat_values = None, eval_step_size = 0.2, feature_info = False, vec_variables=[], vec_var_names=[], vec_var_use=[], early_stopping=300, device="cpu", initial_model_path=None):
+def train_model(input_path, N_signal, train_frac, load_size, parameters, variables, var_names, var_use, classes, reweight_info, n_iterations = 5000, mode = "torch", stat_values = None, eval_step_size = 0.2, eval_interval = 1, feature_info = False, vec_variables=[], vec_var_names=[], vec_var_use=[], early_stopping=300, device="cpu", initial_model_path=None, plots_outpath=None):
 
     n_classes = len(classes)
 
@@ -995,7 +934,13 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
             for i in tqdm(range(n_iterations)):
 
                 if ((load_it == 0) or (period_count == waiting_period)) and (iteration_cum == 0):
-                    ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, colors, reweight_info = get_sample(input_path, parameters[1], classes, N_signal, train_frac, load_size, load_it, reweight_info, features=variables+["evtWeight"], vec_features=vec_variables, verbose=verbose)
+                    ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = get_sample(input_path, parameters[1], classes, N_signal, train_frac, load_size, load_it, reweight_info, features=variables+["evtWeight"], vec_features=vec_variables, verbose=verbose)
+
+                    #=======TEST PLOTS======================================== 
+                    #tools.features_stat(model_type, ds_full_train, ds_full_test, vec_full_train, vec_full_test, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
+                    #=======TEST PLOTS======================================== 
+
+                    
                     if verbose:
                         verbose = False
                     load_it += 1
@@ -1005,7 +950,7 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
                     train_data = process_data(model_type, ds_full_train, vec_full_train, variables, vec_variables, var_use, vec_var_use)
                     test_data = process_data(model_type, ds_full_test, vec_full_test, variables, vec_variables, var_use, vec_var_use)
 
-                    del ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, colors
+                    del ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors
 
                     # Create batch samples
                     #trainloader = DataLoader(dataset = dataset, batch_size = 1) #alternative -> 3_2_Mini_Batch_Descent.py
@@ -1025,7 +970,7 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
                 class_discriminator_model.eval()
 
                 #------------------------------------------------------------------------------------
-                if ((i + 1) % 1 == 0):
+                if ((i + 1) % eval_interval == 0):
 
                     with torch.no_grad():
                         train_loss_i = 0
@@ -1124,16 +1069,13 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
 def evaluate_models(period, library, tag, outpath_base, modelNames_submitted, models_submitted):
 
     models_submitted = [model[3:] for model in models_submitted]
-
     models_dict = dict(zip(modelNames_submitted, models_submitted))
 
-    print(models_dict)
-
-    best_models_path = os.path.join(outpath_base, period, "ML", "best_models")
+    best_models_path = os.path.join(outpath_base, period, "ML_output", "best_models")
     if not os.path.exists(best_models_path):
         os.makedirs(best_models_path)
 
-    list_signals = os.listdir(os.path.join(outpath_base, period, "ML", library, tag))
+    list_signals = os.listdir(os.path.join(outpath_base, period, "ML_output", library, tag))
     if 'best_models.csv' in list_signals:
         list_signals.remove('best_models.csv')
 
@@ -1141,7 +1083,7 @@ def evaluate_models(period, library, tag, outpath_base, modelNames_submitted, mo
     print(library)
     print("#########################################################################################")
 
-    ml_outpath = os.path.join(outpath_base, period, "ML", library, tag)
+    ml_outpath = os.path.join(outpath_base, period, "ML_output", library, tag)
     os.system("rm -rf " + os.path.join(best_models_path, library, tag))
     print("outpath = ", ml_outpath)
 
@@ -1167,7 +1109,7 @@ def evaluate_models(period, library, tag, outpath_base, modelNames_submitted, mo
                         models_iterations.append(np.array(df_training[df_training["test_loss"] == min_loss]["iteration"])[-1])
                         models_name.append(model)
                         models_hyperparameters.append(models_dict[model])
-        df_training = pd.DataFrame({"Model": models_name, "Loss": models_loss, "Accuracy": models_accuracy, "Iterations": models_iterations}, "Hyperparameters": models_hyperparameters)
+        df_training = pd.DataFrame({"Model": models_name, "Loss": models_loss, "Accuracy": models_accuracy, "Iterations": models_iterations, "Hyperparameters": models_hyperparameters})
         df_training = df_training.sort_values("Loss")
         df_training = df_training.reset_index(drop=True)
 
@@ -1181,7 +1123,9 @@ def evaluate_models(period, library, tag, outpath_base, modelNames_submitted, mo
 
         list_best_models.append(df_training.loc[0]["Model"])
 
-        pd.set_option("display.precision", 15)
+        pd.set_option('display.max_rows', None)
+        pd.set_option('display.max_colwidth', None)
+        pd.set_option("display.precision", 6)
         print("============================================================================================================")
         print(signal)
         print("============================================================================================================")
@@ -1254,16 +1198,16 @@ def model_parameters(model_type, param_dict):
 
 
 #=====================================================================================================================
-def features_stat(model_type, train_data, test_data, vec_train_data, vec_test_data, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath):
+def features_stat(model_type, train_data, test_data, vec_train_data, vec_test_data, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=None):
 
     if model_type == "NN":
-        stat_values = features_stat_NN(train_data, test_data, variables, var_names, class_names, class_labels, class_colors, plots_outpath)
+        stat_values = features_stat_NN(train_data, test_data, variables, var_names, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
     elif model_type == "PNN":
-        stat_values = features_stat_PNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath)
+        stat_values = features_stat_PNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
     elif model_type == "APNN":
-        stat_values = features_stat_APNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath)
+        stat_values = features_stat_APNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
     elif model_type == "PNET":
-        stat_values = features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec_variables, vec_var_names, vec_var_use, class_names, class_labels, class_colors, plots_outpath)
+        stat_values = features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec_variables, vec_var_names, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
 
     return stat_values
 

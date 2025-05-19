@@ -37,7 +37,9 @@ model_type = 'NN'
 model_parameters = {
     'num_layers': [2, 3],
     'num_nodes': [20, 30, 50],
-    'activation_func': ['elu']
+    'activation_func': ['elu'],
+    'batch_norm': [True, False],
+    'dropout': [None, 0.2, 0.5],
     }
 
 #-------------------------------------------------------------------------------------
@@ -49,6 +51,7 @@ load_size_training = 1000000000
 num_load_for_check = 1
 train_frac = 0.5
 eval_step_size = 10000
+eval_interval = 5
 num_max_iterations = 10000
 early_stopping = 20
 initial_model_path = None
@@ -78,8 +81,35 @@ vector_variables = []
 # Preprocessing setup
 #-------------------------------------------------------------------------------------
 reweight_variables = []
-
 normalization_method = 'area'
+
+pca_transformation = None #None # "standard", "custom"
+pca_custom_classes = {
+"Signal_param": [[
+    "Signal_400_200",
+    "Signal_500_300",
+    "Signal_600_400",
+    ], "normal", "equal", "Signal", "green"],
+"Background": [[
+    "DYJetsToLL_Pt-0To3",
+    "DYJetsToLL_PtZ-3To50",
+    "DYJetsToLL_PtZ-50To100",
+    "DYJetsToLL_PtZ-100To250",
+    "DYJetsToLL_PtZ-250To400",
+    "DYJetsToLL_PtZ-400To650",
+    "DYJetsToLL_PtZ-650ToInf",
+    "TTTo2L2Nu",
+    "TTToSemiLeptonic",
+    "ST_tW_antitop",
+    "ST_tW_top",
+    "ST_s-channel",
+    "ST_t-channel_top",
+    "ST_t-channel_antitop",
+    "WZTo3LNu",
+    "ZZTo4L",
+    "ZZTo2L2Nu",
+    ], "normal", "evtsum", "Background", "red"],
+}
 
 #-------------------------------------------------------------------------------------
 # Classes setup
@@ -173,21 +203,7 @@ args = parser.parse_args()
 
 
 #===============================================================================
-# EVALUATE MODELS
-#===============================================================================
-if args.evaluate_flag:
-    for i_period in periods:
-        print("==================================")
-        print(i_period)
-        print("==================================")
-        print(" ")
-        print(" ")
-        tools.evaluate_models(i_period, library, tag, output_path)
-    sys.exit()
-
-
-#===============================================================================
-# CHECK ARGUMENT
+# MODELS LIST
 #===============================================================================
 has_signal_list = False
 N_signal_points = 1
@@ -220,6 +236,24 @@ for i_signal in range(N_signal_points):
                             i_job += 1
                             #model[:][2] (Signal_class) is not used anywhere
 
+
+#===============================================================================
+# EVALUATE MODELS
+#===============================================================================
+if args.evaluate_flag:
+    for i_period in periods:
+        print("==================================")
+        print(i_period)
+        print("==================================")
+        print(" ")
+        print(" ")
+        tools.evaluate_models(i_period, library, tag, output_path, modelName, model)
+    sys.exit()
+
+
+#===============================================================================
+# CHECK ARGUMENT
+#===============================================================================
 N = int(args.job)
 if N == -1:
     print("")
@@ -240,14 +274,15 @@ if N_signal_points == 1:
 else:
     signal_tag = classes[Signal_class][0][N_signal]
 
+
 #===============================================================================
 # Output setup
 #===============================================================================
 if args.clean_flag:
-    os.system("rm -rf " + os.path.join(output_path, model[N][1], "ML", library, tag, signal_tag))
+    os.system("rm -rf " + os.path.join(output_path, model[N][1], "ML_output", library, tag, signal_tag))
     sys.exit()
 
-ml_outpath = os.path.join(output_path, model[N][1], "ML")
+ml_outpath = os.path.join(output_path, model[N][1], "ML_output")
 if not os.path.exists(ml_outpath):
     os.makedirs(ml_outpath)
 
@@ -302,12 +337,21 @@ print("Preprocessing input data")
 print("------------------------------------------------------------------------")
 seed = 16
 
-ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True,
-normalization_method=normalization_method)
+ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True, normalization_method=normalization_method)
 
 signal_param = []
 
 stat_values = tools.features_stat(model_type, ds_full_train, ds_full_test, vec_full_train, vec_full_test, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath)
+
+if pca_transformation is not None:
+    if pca_transformation == "standard":
+        ds_full_train_pca, ds_full_test_pca, vec_full_train_pca, vec_full_test_pca, class_names_pca, class_labels_pca, class_colors_pca, reweight_info_pca = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True, normalization_method=normalization_method)
+    elif pca_transformation == "custom":
+        ds_full_train_pca, ds_full_test_pca, vec_full_train_pca, vec_full_test_pca, class_names_pca, class_labels_pca, class_colors_pca, reweight_info_pca = tools.get_sample(input_path, model[N][1], pca_custom_classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True, normalization_method=normalization_method)
+
+    pca_values = tools.features_pca(ds_full_train_pca, variables, var_names, var_use, stat_values, class_names_pca, class_labels_pca, class_colors_pca, plots_outpath)
+
+    stat_values.update(pca_values)
 
 if args.check_flag:
     tools.check_scalars(ds_full_train, variables, var_names, var_use, var_bins, class_names, class_labels, class_colors, plots_outpath)
@@ -342,13 +386,15 @@ class_model, iteration, train_acc, test_acc, train_loss, test_loss, adv_source_a
     mode = library,
     stat_values = stat_values,
     eval_step_size = eval_step_size,
+    eval_interval = eval_interval, 
     feature_info = feature_info,
     vec_variables=vec_variables,
     vec_var_names=vec_var_names,
     vec_var_use=vec_var_use,
     early_stopping=early_stopping,
     device=device,
-    initial_model_path=initial_model_path
+    initial_model_path=initial_model_path,
+    plots_outpath=plots_outpath
     )
 
 
