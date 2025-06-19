@@ -38,6 +38,7 @@ load_size_training = 100000
 num_load_for_check = 4 # It must be smaler or equal than the maximum nSlices
 train_frac = 0.5
 eval_step_size = 250
+eval_interval = 20
 num_max_iterations = 10000
 early_stopping = 20
 initial_model_path = None
@@ -62,9 +63,10 @@ vector_variables = []
 reweight_variables = [
     #["jet_pt",      [200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 350, 400, 450, 500, 1000, 2500]],
     ]
-
 normalization_method = "area" # "evtsum"
 
+pca_transformation = None #None # "standard", "custom"
+pca_custom_classes = {}
 
 #--------------------------------------------------------------------------------------------------
 # Classes setup
@@ -74,11 +76,11 @@ classes = {
 "Signal_sample": [[
     "Zto2Q_PTQQ-100to200",
     "Zto2Q_PTQQ-200to400"
-    ], "scalars", 'flat', "Signal", "green"],
+    ], "scalars", 'equal', "Signal", "green"],
 "Background": [[
     "QCD_PT-15to30",
     "QCD_PT-30to50"
-    ], "scalars", 'flat', "Background", "red"],
+    ], "scalars", 'equal', "Background", "red"],
 }
 
 
