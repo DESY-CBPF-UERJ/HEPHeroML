@@ -1,3 +1,127 @@
+import sys
+import numpy as np
+import pandas as pd
+import os
+import time
+from tqdm import tqdm
+import concurrent.futures as cf
+import argparse
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gs
+from matplotlib.ticker import AutoMinorLocator
+import json
+import tools
+
+#-------------------------------------------------------------------------------------
+# General Setup
+#-------------------------------------------------------------------------------------
+input_path = '/home/gilson/Dropbox/HEP/DANN_test'
+output_path = '/home/gilson/Dropbox/HEP/DANN_test'
+periods = ['0_25']
+tag = 'DANN_test_true'
+
+#-------------------------------------------------------------------------------------
+# ML setup
+#-------------------------------------------------------------------------------------
+device = 'cuda'
+library = 'torch'
+optimizer = ['sgd']
+loss_func = ['cce']
+learning_rate = [[0.001]]
+
+#-------------------------------------------------------------------------------------
+# Models setup
+#-------------------------------------------------------------------------------------
+model_type = 'DANN'
+model_parameters = {
+    'num_layers': [1],
+    'num_nodes': [30],
+    'activation_func': ['elu'],
+    'batch_norm': [True],
+    'dropout': [None]
+    }
+
+#-------------------------------------------------------------------------------------
+# Training setup
+#-------------------------------------------------------------------------------------
+batch_size = [1000]
+load_size_stat = 100000000
+load_size_training = 100000000
+num_load_for_check = 1
+train_frac = 0.5
+eval_step_size = 1000
+eval_interval = 1
+num_max_iterations = 200
+early_stopping = None
+initial_model_path = None
+
+#-------------------------------------------------------------------------------------
+# Inputs setup
+#-------------------------------------------------------------------------------------
+feature_info = False
+
+scalar_variables = [
+    ["VarX", "VarX", 'F'],
+    ["VarY", "VarY", 'F']
+    ]
+
+vector_variables = []
+
+#-------------------------------------------------------------------------------------
+# Preprocessing setup
+#-------------------------------------------------------------------------------------
+reweight_variables = []
+normalization_method = 'area'
+
+pca_transformation = None #None # "standard", "custom"
+pca_custom_classes = {}
+
+#-------------------------------------------------------------------------------------
+# Classes setup
+#-------------------------------------------------------------------------------------
+classes = {
+    'Signal': [[
+        'Signal',
+        ], 'scalars', 'equal', 'Signal', 'green'],
+    'Background': [[
+        'Bkg',
+        ], 'scalars', 'equal', 'Background', 'red'],
+
+    'Domain_0_SR': [[
+        'Signal',
+        'Bkg',
+        ], 'scalars', 'equal', 'D0_SR', 'green'],
+    'Domain_0_CR': [[
+        'Signal_CR',
+        'Bkg_CR',
+        ], 'scalars', 'equal', 'D0_CR', 'blue'],
+    }
+
+
+
+
+"""
+    'Domain_0_SignalSR': [[
+        'Signal',
+        ], 'scalars', 'equal', 'D0_SignalSR', 'green'],
+    'Domain_0_SignalCR': [[
+        'Signal_CR',
+        ], 'scalars', 'equal', 'D0_SignalCR', 'blue'],
+
+    'Domain_1_BkgSR': [[
+        'Bkg',
+        ], 'scalars', 'equal', 'D1_BkgSR', 'red'],
+    'Domain_1_BkgCR': [[
+        'Bkg_CR',
+        ], 'scalars', 'equal', 'D1_BkgCR', 'pink']
+    }
+
+
+"""
+
+
+
+
 #-------------------------------------------------------------------------------------
 # [DO NOT TOUCH THIS PART]
 #-------------------------------------------------------------------------------
@@ -620,3 +744,4 @@ print("-------------------------------------------------------------------------
 print("Total process duration: " + str(hours) + " hours " + str(minutes) + " minutes " + str(seconds) + " seconds")
 print("-----------------------------------------------------------------------------------")
 print("")
+

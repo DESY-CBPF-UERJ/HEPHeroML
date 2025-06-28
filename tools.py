@@ -31,6 +31,7 @@ from models.NN import *
 from models.PNN import *
 from models.APNN import *
 from models.PNET import *
+from models.DANN import *
 
 """
 -> model training minimize classification and domain at the same time (affect all weights)
@@ -44,7 +45,7 @@ from models.PNET import *
 """
 
 
-#=====================================================================================================================
+#==================================================================================================
 def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_it, reweight_info, features=[], vec_features=[], verbose=False, normalization_method="evtsum"):
 
     has_weights = False
@@ -425,7 +426,7 @@ def get_sample(basedir, period, classes, n_signal, train_frac, load_size, load_i
     return ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info
 
 
-#=====================================================================================================================
+#==================================================================================================
 def check_scalars(train_data, variables, var_names, var_use, var_bins, class_names, class_labels, class_colors, plots_outpath):
 
     train_data = pd.DataFrame.from_dict(train_data)
@@ -467,7 +468,7 @@ def check_scalars(train_data, variables, var_names, var_use, var_bins, class_nam
 
 
 
-#=====================================================================================================================
+#==================================================================================================
 def join_datasets(ds, new_name, input_list, check_list, mode="scalars", combination="evtsum"):
 
     datasets_list = []
@@ -520,7 +521,7 @@ def join_datasets(ds, new_name, input_list, check_list, mode="scalars", combinat
     del datasets_list
 
 
-#=====================================================================================================================
+#==================================================================================================
 class control:
     """
     Produce control information to assist in the defition of cuts
@@ -607,7 +608,7 @@ class control:
             plt.plot(self.eff_signal, self.eff_others, color=color, label=label, linestyle=linestyle)
 
 
-#======================================================================================================================
+#===================================================================================================
 def features_pca( ds_full_train_pca, variables, var_names, var_use, stat_values, class_names_pca, class_labels_pca, class_colors_pca, plots_outpath ):
 
     ds_full_train_pca = pd.DataFrame.from_dict(ds_full_train_pca)
@@ -702,7 +703,7 @@ def features_pca( ds_full_train_pca, variables, var_names, var_use, stat_values,
     return pca_values
     
 
-#======================================================================================================================
+#===================================================================================================
 def step_plot( ax, var, dataframe, label, color='black', weight=None, error=False, normalize=False, bins=np.linspace(0,100,5), linestyle='solid', overflow=False, underflow=False ):
 
 
@@ -762,7 +763,7 @@ def step_plot( ax, var, dataframe, label, color='black', weight=None, error=Fals
     return yMC, errMC
 
 
-#======================================================================================================================
+#===================================================================================================
 def ratio_plot( ax, ynum, errnum, yden, errden, bins=np.linspace(0,100,5), color='black', numerator="data" ):
     x = np.array(bins)
     dx = np.array([ (x[i+1]-x[i]) for i in range(x.size-1)])
@@ -802,7 +803,7 @@ def ratio_plot( ax, ynum, errnum, yden, errden, bins=np.linspace(0,100,5), color
     return yratio
 
 
-#=====================================================================================================================
+#==================================================================================================
 # Define a function to plot model parameters in pytorch
 def print_model_parameters(model):
     count = 0
@@ -816,7 +817,7 @@ def print_model_parameters(model):
             print("The size of weights: ", model.state_dict()[ele].size())
 
 
-#=====================================================================================================================
+#==================================================================================================
 # Torch losses
 class BCE_loss(nn.Module): # use with sigmoid
     def __init__(self):
@@ -861,7 +862,7 @@ class CCE_loss(nn.Module): # use with softmax
 
 
 
-#=====================================================================================================================
+#==================================================================================================
 def batch_generator(data, batch_size):
     #Generate batches of data.
 
@@ -875,10 +876,11 @@ def batch_generator(data, batch_size):
 
 
 
-#=====================================================================================================================
-def train_model(input_path, N_signal, train_frac, load_size, parameters, variables, var_names, var_use, classes, reweight_info, n_iterations = 5000, mode = "torch", stat_values = None, eval_step_size = 0.2, eval_interval = 1, feature_info = False, vec_variables=[], vec_var_names=[], vec_var_use=[], early_stopping=300, device="cpu", initial_model_path=None, plots_outpath=None):
+#==================================================================================================
+def train_model(input_path, N_signal, train_frac, load_size, parameters, variables, var_names, var_use, classes, reweight_info, domains=None, n_iterations=5000, mode="torch", stat_values=None, eval_step_size=0.2, eval_interval=1, feature_info=False, vec_variables=[], vec_var_names=[], vec_var_use=[], early_stopping=300, device="cpu", initial_model_path=None, plots_outpath=None):
 
     n_classes = len(classes)
+    period = parameters[1]
 
     model_type = parameters[0]
     batch_size = parameters[5]
@@ -895,6 +897,10 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
         test_acc = []
         train_loss = []
         test_loss = []
+        domains_train_acc = []
+        domains_test_acc = []
+        domains_train_loss = []
+        domains_test_loss = []
         position = 0
         min_loss = 99999
         lr_last_it = []
@@ -911,20 +917,36 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
                     criterion = BCE_loss()
 
                 # Model
-                class_discriminator_model = build_model(model_type, parameters, n_classes, stat_values, variables, var_use, vec_variables, vec_var_use, device)
+                full_model = build_model(model_type, parameters, n_classes, stat_values, variables, var_use, vec_variables, vec_var_use, device)
                 if device == "cuda":
-                    class_discriminator_model = nn.DataParallel(class_discriminator_model) # Wrap the model with DataParallel
-                    class_discriminator_model = class_discriminator_model.to('cuda') # Move the model to the GPU
-                #print(list(class_discriminator_model.parameters()))
+                    full_model = nn.DataParallel(full_model) # Wrap the model with DataParallel
+                    full_model = full_model.to('cuda') # Move the model to the GPU
+                #print(list(full_model.parameters()))
                 print(" ")
-                print(class_discriminator_model.parameters)
+                print(full_model.parameters)
                 print(" ")
 
                 #checkpoint_path='checkpoint_model.pt'
                 checkpoint={'iteration':None, 'model_state_dict':None, 'optimizer_state_dict':None, 'loss': None}
 
-                if initial_model_path is not None:
-                    class_discriminator_model.load_state_dict(torch.load(initial_model_path, weights_only=True))
+                if "DANN" in model_type:
+                    encoder = build_encoder(parameters, variables, stat_values, device)
+                    classifier = build_classifier(parameters, n_classes)
+                    discriminators = []
+                    for idi in range(len(domains)):
+                        discriminators.append(build_discriminator(parameters, len(domains[idi])))
+                    if device == "cuda":
+                        encoder = nn.DataParallel(encoder)
+                        encoder = encoder.to('cuda')
+                        classifier = nn.DataParallel(classifier)
+                        classifier = classifier.to('cuda')
+                        for idi in range(len(domains)):
+                            discriminators[idi] = nn.DataParallel(discriminators[idi])
+                            discriminators[idi] = discriminators[idi].to('cuda')
+
+
+                if initial_model_path is not None: # not valid for DANN
+                    full_model.load_state_dict(torch.load(initial_model_path, weights_only=True))
 
             early_stopping_count = 0
             load_it = 0
@@ -933,85 +955,166 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
             verbose = True
             for i in tqdm(range(n_iterations)):
 
+                p = i/n_iterations
+                alpha = 1 #2. / (1. + np.exp(-10 * p)) - 1
+
                 if ((load_it == 0) or (period_count == waiting_period)) and (iteration_cum == 0):
-                    ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = get_sample(input_path, parameters[1], classes, N_signal, train_frac, load_size, load_it, reweight_info, features=variables+["evtWeight"], vec_features=vec_variables, verbose=verbose)
-
-                    #=======TEST PLOTS======================================== 
-                    #tools.features_stat(model_type, ds_full_train, ds_full_test, vec_full_train, vec_full_test, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
-                    #=======TEST PLOTS======================================== 
-
-                    
-                    if verbose:
-                        verbose = False
-                    load_it += 1
-                    waiting_period = int(len(ds_full_train['mvaWeight'])/batch_size)
-                    period_count = 0
+                    ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = get_sample(input_path, period, classes, N_signal, train_frac, load_size, load_it, reweight_info, features=variables+["evtWeight"], vec_features=vec_variables, verbose=verbose)
 
                     train_data = process_data(model_type, ds_full_train, vec_full_train, variables, vec_variables, var_use, vec_var_use)
                     test_data = process_data(model_type, ds_full_test, vec_full_test, variables, vec_variables, var_use, vec_var_use)
 
-                    del ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors
-
-                    # Create batch samples
-                    #trainloader = DataLoader(dataset = dataset, batch_size = 1) #alternative -> 3_2_Mini_Batch_Descent.py
-                    # Return randomly a sample with number of elements equals to the batch size
+                    #np.set_printoptions(legacy='1.21')
                     train_batches = batch_generator(train_data, batch_size)
 
-                    n_eval_train_steps = int(len(train_data[-1])/eval_step_size) + 1
-                    n_eval_test_steps = int(len(test_data[-1])/eval_step_size) + 1
-                    train_w_sum = train_data[-1].sum()
-                    test_w_sum = test_data[-1].sum()
+                    #=======TEST PLOTS========================================
+                    #tools.features_stat(model_type, ds_full_train, ds_full_test, vec_full_train, vec_full_test, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
+                    #=======TEST PLOTS========================================
+
+                    waiting_period = int(len(ds_full_train['mvaWeight'])/batch_size)
+                    del ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors
+
+                    domain_train_data = []
+                    domain_test_data = []
+                    if "DANN" in model_type:
+                        domain_train_batches = []
+                        for idi in range(len(domains)):
+                            ds_domain_full_train, ds_domain_full_test, vec_domain_full_train, vec_domain_full_test, domain_names, domain_labels, domain_colors, _ = get_sample(input_path, period, domains[idi], N_signal, train_frac, load_size, load_it, reweight_info, features=variables+["evtWeight"], vec_features=vec_variables, verbose=verbose)
+
+                            domain_train_data.append(process_data(model_type, ds_domain_full_train, vec_domain_full_train, variables, vec_variables, var_use, vec_var_use))
+                            domain_test_data.append(process_data(model_type, ds_domain_full_test, vec_domain_full_test, variables, vec_variables, var_use, vec_var_use))
+
+                            domain_train_batches.append(batch_generator(domain_train_data[idi], batch_size))
+
+                            #=======TEST PLOTS========================================
+                            tools.features_stat(model_type, ds_domain_full_train, ds_domain_full_test, vec_domain_full_train, vec_domain_full_test, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, domain_names, domain_labels, domain_colors, plots_outpath, load_it=load_it)
+                            #=======TEST PLOTS========================================
+
+                            del ds_domain_full_train, ds_domain_full_test, vec_domain_full_train, vec_domain_full_test, domain_names, domain_labels, domain_colors
+
+                    if verbose:
+                        verbose = False
+                    load_it += 1
+                    period_count = 0
+
+
+
+
+                batch_data = next(train_batches)
+                train_w_sum = train_data[-1].sum()
+                test_w_sum = test_data[-1].sum()
+                domain_batch_data = []
+                domain_train_w_sum = []
+                domain_test_w_sum = []
+                if "DANN" not in model_type:
+                    full_model.train()
+                    full_model = update_model(model_type, full_model, criterion, parameters, batch_data, domain_batch_data, alpha, stat_values, var_use, device)
+                    full_model.eval()
+                else:
+                    for idi in range(len(domains)):
+                        domain_batch_data.append(next(domain_train_batches[idi]))
+                        domain_train_w_sum.append(domain_train_data[idi][-1].sum())
+                        domain_test_w_sum.append(domain_test_data[idi][-1].sum())
+
+                    encoder.train()
+                    classifier.train()
+                    for idi in range(len(domains)):
+                        discriminators[idi].train()
+                    training_model = [encoder, classifier, discriminators]
+                    encoder, classifier, discriminators = update_model(model_type, training_model, criterion, parameters, batch_data, domain_batch_data, alpha, stat_values, var_use, device)
+                    encoder.eval()
+                    classifier.eval()
+                    for idi in range(len(domains)):
+                        discriminators[idi].eval()
+                    full_model.encoder.load_state_dict(encoder.encoder.state_dict())
+                    full_model.classifier.load_state_dict(classifier.classifier.state_dict())
+
+
+                n_eval_train_steps = int(len(train_data[-1])/eval_step_size) + 1
+                n_eval_test_steps = int(len(test_data[-1])/eval_step_size) + 1
 
 
                 period_count += 1
-                batch_data = next(train_batches)
-                class_discriminator_model.train()
-                class_discriminator_model = update_model(model_type, class_discriminator_model, criterion, parameters, batch_data, stat_values, var_use, device)
-                class_discriminator_model.eval()
 
                 #------------------------------------------------------------------------------------
                 if ((i + 1) % eval_interval == 0):
 
                     with torch.no_grad():
+                        if "DANN" in model_type:
+                            evaluation_model = [encoder, classifier, discriminators]
+                        else:
+                            evaluation_model = full_model
+
                         train_loss_i = 0
                         train_acc_i = 0
+                        domains_train_loss_i = [0 for i in range(len(domains))]
+                        domains_train_acc_i = [0 for i in range(len(domains))]
                         for i_eval in range(n_eval_train_steps):
-                            i_eval_output = evaluate_model(model_type, train_data, class_discriminator_model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, device, mode="metric")
+                            i_eval_output = evaluate_model(model_type, train_data, evaluation_model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, domain_train_data, alpha, device, mode="metric")
                             if i_eval_output is None:
                                 continue
                             else:
-                                i_eval_loss, i_eval_acc = i_eval_output
+                                if "DANN" in model_type:
+                                    i_eval_loss, i_eval_acc, i_eval_domains_loss, i_eval_domains_acc = i_eval_output
+                                else:
+                                    i_eval_loss, i_eval_acc = i_eval_output
                             train_loss_i += i_eval_loss
                             train_acc_i += i_eval_acc
+                            if "DANN" in model_type:
+                                for idi in range(len(domains)):
+                                    domains_train_loss_i[idi] += i_eval_domains_loss[idi]
+                                    domains_train_acc_i[idi] += i_eval_domains_acc[idi]
                         train_loss_i = train_loss_i/train_w_sum
                         train_acc_i = train_acc_i/train_w_sum
+                        if "DANN" in model_type:
+                            for idi in range(len(domains)):
+                                domains_train_loss_i[idi] = domains_train_loss_i[idi]/domain_train_w_sum[idi]
+                                domains_train_acc_i[idi] = domains_train_acc_i[idi]/domain_train_w_sum[idi]
 
 
                         test_loss_i = 0
                         test_acc_i = 0
+                        domains_test_loss_i = [0 for i in range(len(domains))]
+                        domains_test_acc_i = [0 for i in range(len(domains))]
                         for i_eval in range(n_eval_test_steps):
-                            i_eval_output = evaluate_model(model_type, test_data, class_discriminator_model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, device, mode="metric")
+                            i_eval_output = evaluate_model(model_type, test_data, evaluation_model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, domain_train_data, alpha, device, mode="metric")
                             if i_eval_output is None:
                                 continue
                             else:
-                                i_eval_loss, i_eval_acc = i_eval_output
+                                if "DANN" in model_type:
+                                    i_eval_loss, i_eval_acc, i_eval_domains_loss, i_eval_domains_acc = i_eval_output
+                                else:
+                                    i_eval_loss, i_eval_acc = i_eval_output
                             test_loss_i += i_eval_loss
                             test_acc_i += i_eval_acc
+                            if "DANN" in model_type:
+                                for idi in range(len(domains)):
+                                    domains_test_loss_i[idi] += i_eval_domains_loss[idi]
+                                    domains_test_acc_i[idi] += i_eval_domains_acc[idi]
                         test_loss_i = test_loss_i/test_w_sum
                         test_acc_i = test_acc_i/test_w_sum
+                        if "DANN" in model_type:
+                            for idi in range(len(domains)):
+                                domains_test_loss_i[idi] = domains_test_loss_i[idi]/domain_test_w_sum[idi]
+                                domains_test_acc_i[idi] = domains_test_acc_i[idi]/domain_test_w_sum[idi]
 
+                        del evaluation_model
 
                         iteration.append(iteration_cum+i+1)
                         train_acc.append(train_acc_i)
                         test_acc.append(test_acc_i)
                         train_loss.append(train_loss_i)
                         test_loss.append(test_loss_i)
+                        domains_train_acc.append(domains_train_acc_i)
+                        domains_test_acc.append(domains_test_acc_i)
+                        domains_train_loss.append(domains_train_loss_i)
+                        domains_test_loss.append(domains_test_loss_i)
 
                         if( (test_loss_i < min_loss) ):
                             min_loss = test_loss_i
                             position = i+1
                             #checkpoint['iteration']=iteration
-                            checkpoint['model_state_dict']=class_discriminator_model.state_dict()
+                            checkpoint['model_state_dict']=full_model.state_dict()
                             #checkpoint['optimizer_state_dict']= optimizer.state_dict()
                             checkpoint['loss']=min_loss
                             early_stopping_count = 0
@@ -1019,6 +1122,9 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
                             early_stopping_count += 1
 
                         print("ilr =  %d, iterations %d, class loss =  %.10f, class accuracy =  %.3f"%(ilr, i+1, test_loss_i, test_acc_i ))
+                        if "DANN" in model_type:
+                            for idi in range(len(domains)):
+                                print("DI %d, domain loss =  %.10f, domain accuracy =  %.3f"%(idi, domains_test_loss_i[idi], domains_test_acc_i[idi] ))
 
                         if early_stopping_count == early_stopping:
                             print("Early stopping activated!")
@@ -1028,10 +1134,12 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
             if( position > 0 ):
                 if( ilr == len(learning_rates)-1 ):
                     # Set weights of the best classification model
-                    class_discriminator_model.load_state_dict(checkpoint['model_state_dict'])
+                    #print(checkpoint['model_state_dict'])
+                    if early_stopping is not None:
+                        full_model.load_state_dict(checkpoint['model_state_dict'])
                     min_loss = checkpoint['loss']
                 else:
-                    class_discriminator_model.load_state_dict(checkpoint['model_state_dict'])
+                    full_model.load_state_dict(checkpoint['model_state_dict'])
                     min_loss = checkpoint['loss']
                     if early_stopping_count > 0:
                         iteration = iteration[:-early_stopping_count]
@@ -1039,6 +1147,10 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
                         test_acc = test_acc[:-early_stopping_count]
                         train_loss = train_loss[:-early_stopping_count]
                         test_loss = test_loss[:-early_stopping_count]
+                        domains_train_acc = domains_train_acc[:-early_stopping_count]
+                        domains_test_acc = domains_test_acc[:-early_stopping_count]
+                        domains_train_loss = domains_train_loss[:-early_stopping_count]
+                        domains_test_loss = domains_test_loss[:-early_stopping_count]
                     iteration_cum = iteration[-1]
                 lr_last_it.append(iteration[-1])
 
@@ -1054,18 +1166,13 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
                 print("Computing feature importance")
                 print("------------------------------------------------------------------------")
                 with torch.no_grad():
-                    feature_score_info = feature_score(model_type, test_data, class_discriminator_model, min_loss, eval_step_size, criterion, parameters, variables, vec_variables, var_use, vec_var_use, var_names, vec_var_names, stat_values, device)
+                    feature_score_info = feature_score(model_type, test_data, full_model, min_loss, eval_step_size, criterion, parameters, variables, vec_variables, var_use, vec_var_use, var_names, vec_var_names, stat_values, device)
 
-
-        adv_source_acc = np.zeros_like(test_acc)
-        adv_target_acc = np.zeros_like(test_acc)
-
-
-    return class_discriminator_model, np.array(iteration), np.array(train_acc), np.array(test_acc), np.array(train_loss), np.array(test_loss), np.array(adv_source_acc), np.array(adv_target_acc), feature_score_info, lr_info
+    return full_model, np.array(iteration), np.array(train_acc), np.array(test_acc), np.array(train_loss), np.array(test_loss), np.array(domains_train_acc), np.array(domains_test_acc), np.array(domains_train_loss), np.array(domains_test_loss), feature_score_info, lr_info
 
 
 
-#=====================================================================================================================
+#==================================================================================================
 def evaluate_models(period, library, tag, outpath_base, modelNames_submitted, models_submitted):
 
     models_submitted = [model[3:] for model in models_submitted]
@@ -1126,9 +1233,9 @@ def evaluate_models(period, library, tag, outpath_base, modelNames_submitted, mo
         pd.set_option('display.max_rows', None)
         pd.set_option('display.max_colwidth', None)
         pd.set_option("display.precision", 6)
-        print("============================================================================================================")
+        print("====================================================================================")
         print(signal)
-        print("============================================================================================================")
+        print("====================================================================================")
         print(df_training)
         print("")
         save_path = os.path.join(best_models_path, library, tag, signal)
@@ -1167,7 +1274,7 @@ def evaluate_models(period, library, tag, outpath_base, modelNames_submitted, mo
 
 
 
-#=====================================================================================================================
+#==================================================================================================
 def build_model(model_type, parameters, n_classes, stat_values, variables, var_use, vec_variables, vec_var_use, device):
 
     if model_type == "NN":
@@ -1178,11 +1285,13 @@ def build_model(model_type, parameters, n_classes, stat_values, variables, var_u
         model = build_APNN(parameters, variables, n_classes, stat_values, device)
     elif model_type == "PNET":
         model = build_PNET(vec_variables, vec_var_use, n_classes, parameters, stat_values, device)
+    elif model_type == "DANN":
+        model = build_DANN(parameters, variables, n_classes, stat_values, device)
 
     return model
 
 
-#=====================================================================================================================
+#==================================================================================================
 def model_parameters(model_type, param_dict):
 
     if model_type == "NN":
@@ -1193,11 +1302,13 @@ def model_parameters(model_type, param_dict):
         model_parameters = model_parameters_APNN(param_dict)
     elif model_type == "PNET":
         model_parameters = model_parameters_PNET(param_dict)
+    elif model_type == "DANN":
+        model_parameters = model_parameters_DANN(param_dict)
 
     return model_parameters
 
 
-#=====================================================================================================================
+#==================================================================================================
 def features_stat(model_type, train_data, test_data, vec_train_data, vec_test_data, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=None):
 
     if model_type == "NN":
@@ -1208,12 +1319,14 @@ def features_stat(model_type, train_data, test_data, vec_train_data, vec_test_da
         stat_values = features_stat_APNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
     elif model_type == "PNET":
         stat_values = features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec_variables, vec_var_names, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
+    elif model_type == "DANN":
+        stat_values = features_stat_DANN(train_data, test_data, variables, var_names, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
 
     return stat_values
 
 
-#=====================================================================================================================
-def update_model(model_type, model, criterion, parameters, batch_data, stat_values, var_use, device):
+#==================================================================================================
+def update_model(model_type, model, criterion, parameters, batch_data, domain_batch_data, alpha, stat_values, var_use, device):
 
     if model_type == "NN":
         model = update_NN(model, criterion, parameters, batch_data, device)
@@ -1223,11 +1336,13 @@ def update_model(model_type, model, criterion, parameters, batch_data, stat_valu
         model = update_APNN(model, criterion, parameters, batch_data, stat_values, var_use, device)
     elif model_type == "PNET":
         model = update_PNET(model, criterion, parameters, batch_data, device)
+    elif model_type == "DANN":
+        model = update_DANN(model, criterion, parameters, batch_data, domain_batch_data, alpha, device)
 
     return model
 
 
-#=====================================================================================================================
+#==================================================================================================
 def process_data(model_type, scalar_var, vector_var, variables, vec_variables, var_use, vec_var_use):
 
     if model_type == "NN":
@@ -1238,12 +1353,14 @@ def process_data(model_type, scalar_var, vector_var, variables, vec_variables, v
         input_data = process_data_APNN(scalar_var, variables)
     elif model_type == "PNET":
         input_data = process_data_PNET(scalar_var, vector_var, vec_variables, vec_var_use)
+    elif model_type == "DANN":
+        input_data = process_data_DANN(scalar_var, variables)
 
     return input_data
 
 
-#=====================================================================================================================
-def evaluate_model(model_type, input_data, model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, device, mode="predict"):
+#==================================================================================================
+def evaluate_model(model_type, input_data, model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, domain_input_data, alpha, device, mode="predict"):
 
     if model_type == "NN":
         i_eval_output = evaluate_NN(input_data, model, i_eval, eval_step_size, criterion, parameters, device, mode)
@@ -1253,11 +1370,13 @@ def evaluate_model(model_type, input_data, model, i_eval, eval_step_size, criter
         i_eval_output = evaluate_APNN(input_data, model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, device, mode)
     elif model_type == "PNET":
         i_eval_output = evaluate_PNET(input_data, model, i_eval, eval_step_size, criterion, parameters, device, mode)
+    elif model_type == "DANN":
+        i_eval_output = evaluate_DANN(input_data, model, i_eval, eval_step_size, criterion, parameters, domain_input_data, alpha, device, mode)
 
     return i_eval_output
 
 
-#=====================================================================================================================
+#==================================================================================================
 def feature_score(model_type, input_data, model, min_loss, eval_step_size, criterion, parameters, variables, vec_variables, var_use, vec_var_use, var_names, vec_var_names, stat_values, device):
 
     if model_type == "NN":
@@ -1268,11 +1387,13 @@ def feature_score(model_type, input_data, model, min_loss, eval_step_size, crite
         feature_score_info = feature_score_APNN(input_data, model, min_loss, eval_step_size, criterion, parameters, variables, var_names, var_use, stat_values, device)
     elif model_type == "PNET":
         feature_score_info = feature_score_PNET(input_data, model, min_loss, eval_step_size, criterion, parameters, vec_variables, vec_var_use, vec_var_names, device)
+    elif model_type == "DANN":
+        feature_score_info = feature_score_DANN(input_data, model, min_loss, eval_step_size, criterion, parameters, variables, var_names, device)
 
     return feature_score_info
 
 
-#=====================================================================================================================
+#==================================================================================================
 def save_model(model_type, model, model_outpath, dim, device):
 
     if model_type == "NN":
@@ -1283,5 +1404,7 @@ def save_model(model_type, model, model_outpath, dim, device):
         save_APNN(model, model_outpath, dim, device)
     elif model_type == "PNET":
         save_PNET(model, model_outpath, dim, device)
+    elif model_type == "DANN":
+        save_DANN(model, model_outpath, dim, device)
 
 
