@@ -819,6 +819,23 @@ def print_model_parameters(model):
 
 #==================================================================================================
 # Torch losses
+class MSE_loss(nn.Module): # use it for regression
+    def __init__(self):
+        super(MSE_loss, self).__init__()
+
+    def forward(self, y_true, y_pred, weight, device="cpu"):
+
+        epsilon = 1e-7
+        y_pred = (1-2*epsilon)*y_pred + epsilon
+
+
+        total_mse_loss = torch.sum(((y_pred - y_true)**2)*weight)
+        num_of_samples = torch.sum(weight)
+        mean_mse_loss = total_mse_loss / num_of_samples
+
+        return mean_mse_loss
+
+
 class BCE_loss(nn.Module): # use with sigmoid
     def __init__(self):
         super(BCE_loss, self).__init__()
