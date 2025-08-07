@@ -30,6 +30,7 @@ from custom_opts.ranger import Ranger
 from models.NN import *
 from models.PNN import *
 from models.APNN import *
+from models.APSNN import *
 from models.PNET import *
 from models.DANN import *
 
@@ -1004,7 +1005,7 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
                             domain_train_batches.append(batch_generator(domain_train_data[idi], batch_size))
 
                             #=======TEST PLOTS========================================
-                            tools.features_stat(model_type, ds_domain_full_train, ds_domain_full_test, vec_domain_full_train, vec_domain_full_test, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, domain_names, domain_labels, domain_colors, plots_outpath, load_it=load_it)
+                            #tools.features_stat(model_type, ds_domain_full_train, ds_domain_full_test, vec_domain_full_train, vec_domain_full_test, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, domain_names, domain_labels, domain_colors, plots_outpath, load_it=load_it)
                             #=======TEST PLOTS========================================
 
                             del ds_domain_full_train, ds_domain_full_test, vec_domain_full_train, vec_domain_full_test, domain_names, domain_labels, domain_colors
@@ -1300,6 +1301,8 @@ def build_model(model_type, parameters, n_classes, stat_values, variables, var_u
         model = build_PNN(parameters, variables, n_classes, stat_values, device)
     elif model_type == "APNN":
         model = build_APNN(parameters, variables, n_classes, stat_values, device)
+    elif model_type == "APSNN":
+        model = build_APSNN(parameters, variables, n_classes, stat_values, device)
     elif model_type == "PNET":
         model = build_PNET(vec_variables, vec_var_use, n_classes, parameters, stat_values, device)
     elif model_type == "DANN":
@@ -1317,6 +1320,8 @@ def model_parameters(model_type, param_dict):
         model_parameters = model_parameters_PNN(param_dict)
     elif model_type == "APNN":
         model_parameters = model_parameters_APNN(param_dict)
+    elif model_type == "APSNN":
+        model_parameters = model_parameters_APSNN(param_dict)
     elif model_type == "PNET":
         model_parameters = model_parameters_PNET(param_dict)
     elif model_type == "DANN":
@@ -1334,6 +1339,8 @@ def features_stat(model_type, train_data, test_data, vec_train_data, vec_test_da
         stat_values = features_stat_PNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
     elif model_type == "APNN":
         stat_values = features_stat_APNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
+    elif model_type == "APSNN":
+        stat_values = features_stat_APSNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
     elif model_type == "PNET":
         stat_values = features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec_variables, vec_var_names, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
     elif model_type == "DANN":
@@ -1351,6 +1358,8 @@ def update_model(model_type, model, criterion, parameters, batch_data, domain_ba
         model = update_PNN(model, criterion, parameters, batch_data, stat_values, var_use, device)
     elif model_type == "APNN":
         model = update_APNN(model, criterion, parameters, batch_data, stat_values, var_use, device)
+    elif model_type == "APSNN":
+        model = update_APSNN(model, criterion, parameters, batch_data, stat_values, var_use, device)
     elif model_type == "PNET":
         model = update_PNET(model, criterion, parameters, batch_data, device)
     elif model_type == "DANN":
@@ -1368,6 +1377,8 @@ def process_data(model_type, scalar_var, vector_var, variables, vec_variables, v
         input_data = process_data_PNN(scalar_var, variables)
     elif model_type == "APNN":
         input_data = process_data_APNN(scalar_var, variables)
+    elif model_type == "APSNN":
+        input_data = process_data_APSNN(scalar_var, variables)
     elif model_type == "PNET":
         input_data = process_data_PNET(scalar_var, vector_var, vec_variables, vec_var_use)
     elif model_type == "DANN":
@@ -1385,6 +1396,8 @@ def evaluate_model(model_type, input_data, model, i_eval, eval_step_size, criter
         i_eval_output = evaluate_PNN(input_data, model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, device, mode)
     elif model_type == "APNN":
         i_eval_output = evaluate_APNN(input_data, model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, device, mode)
+    elif model_type == "APSNN":
+        i_eval_output = evaluate_APSNN(input_data, model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, device, mode)
     elif model_type == "PNET":
         i_eval_output = evaluate_PNET(input_data, model, i_eval, eval_step_size, criterion, parameters, device, mode)
     elif model_type == "DANN":
@@ -1402,6 +1415,8 @@ def feature_score(model_type, input_data, model, min_loss, eval_step_size, crite
         feature_score_info = feature_score_PNN(input_data, model, min_loss, eval_step_size, criterion, parameters, variables, var_names, var_use, stat_values, device)
     elif model_type == "APNN":
         feature_score_info = feature_score_APNN(input_data, model, min_loss, eval_step_size, criterion, parameters, variables, var_names, var_use, stat_values, device)
+    elif model_type == "APSNN":
+        feature_score_info = feature_score_APSNN(input_data, model, min_loss, eval_step_size, criterion, parameters, variables, var_names, var_use, stat_values, device)
     elif model_type == "PNET":
         feature_score_info = feature_score_PNET(input_data, model, min_loss, eval_step_size, criterion, parameters, vec_variables, vec_var_use, vec_var_names, device)
     elif model_type == "DANN":
@@ -1419,6 +1434,8 @@ def save_model(model_type, model, model_outpath, dim, device):
         save_PNN(model, model_outpath, dim, device)
     elif model_type == "APNN":
         save_APNN(model, model_outpath, dim, device)
+    elif model_type == "APSNN":
+        save_APSNN(model, model_outpath, dim, device)
     elif model_type == "PNET":
         save_PNET(model, model_outpath, dim, device)
     elif model_type == "DANN":
