@@ -107,7 +107,7 @@ args = parser.parse_args()
 #===============================================================================
 # Classes and domains treatment
 #===============================================================================
-domain_inquiry_ids = [int(key.split("_")[1]) for key in classes.keys() if len(key.split("_")) > 1]
+domain_inquiry_ids = [int(key.split("_")[1]) for key in classes.keys() if len(key.split("_")) >= 3]
 domain_inquiry_ids = np.unique(domain_inquiry_ids)
 domains = [dict() for i in range(len(domain_inquiry_ids))]
 classes_temp = classes.copy()

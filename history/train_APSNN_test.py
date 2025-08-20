@@ -37,7 +37,64 @@ model_parameters = {
     'affine_setups': [[100, 50], [300, 150, 100, 50]],
     'activation_func': ['gelu', 'relu', 'elu'],
     'batch_norm': [True, False],
-    'dropout': [None, 0.2, 0.5]
+    'dropout': [None, 0.2, 0.5],
+    "parameter_max_power": [2, 2, 2, 2, 2, 2, 2, 2, 2],
+    "max_overall_power": 2,
+    "basis": [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+            [0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0]]
     }
 
 #-------------------------------------------------------------------------------------
@@ -50,7 +107,7 @@ num_load_for_check = 1
 train_frac = 0.5
 eval_step_size = 1000
 eval_interval = 1
-num_max_iterations = 10000
+num_max_iterations = 1000 #10000
 early_stopping = 40
 initial_model_path = None
 
@@ -69,6 +126,7 @@ scalar_variables = [
     ["MET_LepLep_Mt",           r"$M_\mathrm{T}^\mathrm{ll,MET}$",               "F"],
     ["MET_LepLep_deltaPhi",     r"$\Delta \phi^\mathrm{ll,MET}$",                "F"],
     ["MT2LL",                   r"$M_\mathrm{T2}^\mathrm{ll}$",                  "F"],
+    ["ttbar_chel",              r"$\mathrm{C}_\mathrm{hel}$",                    "F"],
     ["theta_0",                 r"$\theta_0$",                                   [0]],
     ["theta_1",                 r"$\theta_1$",                                   [0]],
     ["theta_2",                 r"$\theta_2$",                                   [0]],
@@ -80,7 +138,9 @@ scalar_variables = [
     ["theta_8",                 r"$\theta_8$",                                   [0]],
     ]
 
-vector_variables = []
+vector_variables = [
+    ["eftWeights",           "EFT weights",  "F"],
+    ]
 
 #-------------------------------------------------------------------------------------
 # Preprocessing setup
@@ -95,11 +155,13 @@ pca_custom_classes = {}
 # Classes setup
 #-------------------------------------------------------------------------------------
 classes = {
-    'Signal_sample': [[
+    'Signal': [[
         "Signal_TTto2L2Nu_MTT-0to700",
         "Signal_TTto2L2Nu_MTT-700to900",
         "Signal_TTto2L2Nu_MTT-900toInf",
         ], 'scalars', 'evtsum', 'Signal', 'green'],
+    }
+"""
     'Background': [[
         "DYJetsToLL_M-10to50",
         "DYJetsToLL_Pt-0To3",
@@ -137,7 +199,7 @@ classes = {
         "tZq_ll",
         ], 'scalars', 'evtsum', 'Background', 'red']
     }
-
+"""
 
 #-------------------------------------------------------------------------------------
 # [DO NOT TOUCH THIS PART]
@@ -157,7 +219,7 @@ args = parser.parse_args()
 #===============================================================================
 # Classes and domains treatment
 #===============================================================================
-domain_inquiry_ids = [int(key.split("_")[1]) for key in classes.keys() if len(key.split("_")) > 1]
+domain_inquiry_ids = [int(key.split("_")[1]) for key in classes.keys() if len(key.split("_")) >= 3]
 domain_inquiry_ids = np.unique(domain_inquiry_ids)
 domains = [dict() for i in range(len(domain_inquiry_ids))]
 classes_temp = classes.copy()
@@ -183,7 +245,7 @@ for key in classes:
             N_signal_points = len(classes[key][0])
             break
 
-model_parameters = tools.model_parameters(model_type, model_parameters)
+model_parameters_list = tools.model_parameters(model_type, model_parameters)
 
 modelName = []
 model = []
@@ -194,7 +256,7 @@ for i_signal in range(N_signal_points):
             for i_loss_func in loss_func:
                 for i_batch_size in batch_size:
                     for i_lr in learning_rate:
-                        for i_model_param in model_parameters:
+                        for i_model_param in model_parameters_list:
                             modelName.append(str(i_job)+"_"+model_type)
                             if N_signal_points == 1:
                                 model.append([model_type] + [i_period] + [Signal_class] + [i_optimizer] + [i_loss_func] + [i_batch_size] + [i_lr] + [i_model_param])
@@ -306,9 +368,7 @@ seed = 16
 
 ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_stat, 0, reweight_variables, features=variables+["evtWeight"], vec_features=vec_variables, verbose=True, normalization_method=normalization_method)
 
-signal_param = []
-
-stat_values = tools.features_stat(model_type, ds_full_train, ds_full_test, vec_full_train, vec_full_test, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath)
+stat_values = tools.features_stat(model_type, ds_full_train, ds_full_test, vec_full_train, vec_full_test, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath, model_parameters=model_parameters)
 
 if pca_transformation is not None:
     if pca_transformation == "standard":
@@ -595,8 +655,8 @@ for i_load in tqdm(range(num_load_for_check)):
 
     ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = tools.get_sample(input_path, model[N][1], classes, N_signal, train_frac, load_size_training, i_load, reweight_info, features=variables+["evtWeight"], vec_features=vec_variables)
 
-    train_data = tools.process_data(model_type, ds_full_train, vec_full_train, variables, vec_variables, var_use, vec_var_use)
-    test_data = tools.process_data(model_type, ds_full_test, vec_full_test, variables, vec_variables, var_use, vec_var_use)
+    train_data = tools.process_data(model_type, ds_full_train, vec_full_train, variables, vec_variables, var_use, vec_var_use, stat_values, device)
+    test_data = tools.process_data(model_type, ds_full_test, vec_full_test, variables, vec_variables, var_use, vec_var_use, stat_values, device)
 
     ds_full_train = pd.DataFrame.from_dict(ds_full_train)
     ds_full_test = pd.DataFrame.from_dict(ds_full_test)
@@ -637,11 +697,20 @@ for i_load in tqdm(range(num_load_for_check)):
             pred_name = 'score_C'+str(i)
             ds_full_test[pred_name] = test_class_pred[:,i]
             ds_full_train[pred_name] = train_class_pred[:,i]
-    if model[N][4] == "bce":
+    elif model[N][4] == "bce":
         n_outputs = 1
         pred_name = 'score_C0'
         ds_full_test[pred_name] = 1 - test_class_pred[:,0]
         ds_full_train[pred_name] = 1 - train_class_pred[:,0]
+    elif model[N][4] == "mse":
+        n_outputs = 0
+        for i in range(len(variables)):
+            if var_use[i] != "F":
+                n_outputs += 1
+        for i in range(n_outputs):
+            pred_name = 'score_C'+str(i)
+            ds_full_test[pred_name] = test_class_pred[:,i]
+            ds_full_train[pred_name] = train_class_pred[:,i]
 
     if i_load == 0:
         ds_check_test = ds_full_test.copy()
@@ -659,7 +728,7 @@ for i in range(n_outputs):
     ax1 = plt.subplot(gs1[0])
     #==================================================
     var = 'score_C'+str(i)
-    bins = np.linspace(0,1,51)
+    bins = np.linspace(-1,1,51)
     yTrain = []
     errTrain = []
     yTest = []
@@ -672,7 +741,10 @@ for i in range(n_outputs):
         yTest.append(yH)
         errTest.append(errH)
     ax1.set_ylabel("Events normalized", size=14, horizontalalignment='right', y=1.0)
-    ax1.set_xlabel(class_names[i] + " score", size=14, horizontalalignment='right', x=1.0)
+    if model[N][4] == "cce" or model[N][4] == "bce":
+        ax1.set_xlabel(class_names[i] + " score", size=14, horizontalalignment='right', x=1.0)
+    else:
+        ax1.set_xlabel("Score " + str(i), size=14, horizontalalignment='right', x=1.0)
     plt.yscale('log')
     ax1.set_ylim([1.E-6,1.])
 
@@ -693,52 +765,53 @@ for i in range(n_outputs):
 
 
     #------------------------------------------------------------------------------------
-    fig1 = plt.figure(figsize=(9,5))
-    grid = [1, 1]
-    gs1 = gs.GridSpec(grid[0], grid[1])
-    #==================================================
-    ax1 = plt.subplot(gs1[0])
-    #==================================================
-    var = 'score_C'+str(i)
-    signal_train_roc = []
-    signal_test_roc = []
-    bkg_train_roc = []
-    bkg_test_roc = []
-    for ikey in range(len(class_names)):
-        if ikey == i:
-            signal_train_roc.append(ds_full_train[ds_full_train["class"] == ikey])
-            signal_test_roc.append(ds_full_test[ds_full_test["class"] == ikey])
-        else:
-            bkg_train_roc.append(ds_full_train[ds_full_train["class"] == ikey])
-            bkg_test_roc.append(ds_full_test[ds_full_test["class"] == ikey])
-
-    ctr_train = tools.control( var, signal_train_roc, bkg_train_roc, weight="evtWeight", bins=np.linspace(0,1,1001) )
-    ctr_train.roc_plot(label='ROC (train)', color='blue', linestyle="-", version=2)
-    ctr_test = tools.control( var, signal_test_roc, bkg_test_roc, weight="evtWeight", bins=np.linspace(0,1,1001) )
-    ctr_test.roc_plot(label='ROC (test)', color='blue', linestyle="--", version=2)
-
-    ax1.set_xlabel("Signal efficiency", size=14, horizontalalignment='right', x=1.0)
-    ax1.set_ylabel("Background efficiency", size=14, horizontalalignment='right', y=1.0)
-    plt.yscale('log')
-    ax1.set_xlim([0,1])
-    ax1.set_ylim([1.E-3,1.])
-
-    ax1.grid(which='major', axis='x', linewidth=0.2, linestyle='-', color='0.75')
-    ax1.grid(which='major', axis='y', linewidth=0.2, linestyle='-', color='0.75')
-    ax1.tick_params(which='major', length=8)
-    ax1.tick_params(which='minor', length=4)
-    ax1.xaxis.set_minor_locator(AutoMinorLocator())
-    #ax1.yaxis.set_minor_locator(AutoMinorLocator())
-    ax1.spines['bottom'].set_linewidth(1)
-    ax1.spines['top'].set_linewidth(1)
-    ax1.spines['left'].set_linewidth(1)
-    ax1.spines['right'].set_linewidth(1)
-    ax1.margins(x=0)
-    ax1.legend(numpoints=1, ncol=1, prop={'size': 10.5}, frameon=False, loc='lower center')
-
-    plt.subplots_adjust(left=0.09, bottom=0.115, right=0.97, top=0.95, wspace=0.18, hspace=0.165)
-    plt.savefig(os.path.join(model_outpath, var + "_roc.png"), dpi=400)
-    plt.savefig(os.path.join(model_outpath, var + "_roc.pdf"))
+    if model[N][4] == "cce" or model[N][4] == "bce":
+        fig1 = plt.figure(figsize=(9,5))
+        grid = [1, 1]
+        gs1 = gs.GridSpec(grid[0], grid[1])
+        #==================================================
+        ax1 = plt.subplot(gs1[0])
+        #==================================================
+        var = 'score_C'+str(i)
+        signal_train_roc = []
+        signal_test_roc = []
+        bkg_train_roc = []
+        bkg_test_roc = []
+        for ikey in range(len(class_names)):
+            if ikey == i:
+                signal_train_roc.append(ds_full_train[ds_full_train["class"] == ikey])
+                signal_test_roc.append(ds_full_test[ds_full_test["class"] == ikey])
+            else:
+                bkg_train_roc.append(ds_full_train[ds_full_train["class"] == ikey])
+                bkg_test_roc.append(ds_full_test[ds_full_test["class"] == ikey])
+    
+        ctr_train = tools.control( var, signal_train_roc, bkg_train_roc, weight="evtWeight", bins=np.linspace(0,1,1001) )
+        ctr_train.roc_plot(label='ROC (train)', color='blue', linestyle="-", version=2)
+        ctr_test = tools.control( var, signal_test_roc, bkg_test_roc, weight="evtWeight", bins=np.linspace(0,1,1001) )
+        ctr_test.roc_plot(label='ROC (test)', color='blue', linestyle="--", version=2)
+    
+        ax1.set_xlabel("Signal efficiency", size=14, horizontalalignment='right', x=1.0)
+        ax1.set_ylabel("Background efficiency", size=14, horizontalalignment='right', y=1.0)
+        plt.yscale('log')
+        ax1.set_xlim([0,1])
+        ax1.set_ylim([1.E-3,1.])
+    
+        ax1.grid(which='major', axis='x', linewidth=0.2, linestyle='-', color='0.75')
+        ax1.grid(which='major', axis='y', linewidth=0.2, linestyle='-', color='0.75')
+        ax1.tick_params(which='major', length=8)
+        ax1.tick_params(which='minor', length=4)
+        ax1.xaxis.set_minor_locator(AutoMinorLocator())
+        #ax1.yaxis.set_minor_locator(AutoMinorLocator())
+        ax1.spines['bottom'].set_linewidth(1)
+        ax1.spines['top'].set_linewidth(1)
+        ax1.spines['left'].set_linewidth(1)
+        ax1.spines['right'].set_linewidth(1)
+        ax1.margins(x=0)
+        ax1.legend(numpoints=1, ncol=1, prop={'size': 10.5}, frameon=False, loc='lower center')
+    
+        plt.subplots_adjust(left=0.09, bottom=0.115, right=0.97, top=0.95, wspace=0.18, hspace=0.165)
+        plt.savefig(os.path.join(model_outpath, var + "_roc.png"), dpi=400)
+        plt.savefig(os.path.join(model_outpath, var + "_roc.pdf"))
 
 del ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors
 

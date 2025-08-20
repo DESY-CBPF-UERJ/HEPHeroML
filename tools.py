@@ -830,8 +830,8 @@ class MSE_loss(nn.Module): # use it for regression
         y_pred = (1-2*epsilon)*y_pred + epsilon
 
 
-        total_mse_loss = torch.sum(((y_pred - y_true)**2)*weight)
-        num_of_samples = torch.sum(weight)
+        total_mse_loss = torch.sum(((y_pred - y_true)**2)*torch.abs(weight))
+        num_of_samples = torch.sum(torch.abs(weight))
         mean_mse_loss = total_mse_loss / num_of_samples
 
         return mean_mse_loss
@@ -933,6 +933,8 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
                     criterion = CCE_loss(num_classes=n_classes)
                 elif parameters[4] == 'bce':
                     criterion = BCE_loss()
+                elif parameters[4] == 'mse':
+                    criterion = MSE_loss()
 
                 # Model
                 full_model = build_model(model_type, parameters, n_classes, stat_values, variables, var_use, vec_variables, vec_var_use, device)
@@ -979,8 +981,8 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
                 if ((load_it == 0) or (period_count == waiting_period)) and (iteration_cum == 0):
                     ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = get_sample(input_path, period, classes, N_signal, train_frac, load_size, load_it, reweight_info, features=variables+["evtWeight"], vec_features=vec_variables, verbose=verbose)
 
-                    train_data = process_data(model_type, ds_full_train, vec_full_train, variables, vec_variables, var_use, vec_var_use)
-                    test_data = process_data(model_type, ds_full_test, vec_full_test, variables, vec_variables, var_use, vec_var_use)
+                    train_data = process_data(model_type, ds_full_train, vec_full_train, variables, vec_variables, var_use, vec_var_use, stat_values, device)
+                    test_data = process_data(model_type, ds_full_test, vec_full_test, variables, vec_variables, var_use, vec_var_use, stat_values, device)
 
                     #np.set_printoptions(legacy='1.21')
                     train_batches = batch_generator(train_data, batch_size)
@@ -999,8 +1001,8 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
                         for idi in range(len(domains)):
                             ds_domain_full_train, ds_domain_full_test, vec_domain_full_train, vec_domain_full_test, domain_names, domain_labels, domain_colors, _ = get_sample(input_path, period, domains[idi], N_signal, train_frac, load_size, load_it, reweight_info, features=variables+["evtWeight"], vec_features=vec_variables, verbose=verbose)
 
-                            domain_train_data.append(process_data(model_type, ds_domain_full_train, vec_domain_full_train, variables, vec_variables, var_use, vec_var_use))
-                            domain_test_data.append(process_data(model_type, ds_domain_full_test, vec_domain_full_test, variables, vec_variables, var_use, vec_var_use))
+                            domain_train_data.append(process_data(model_type, ds_domain_full_train, vec_domain_full_train, variables, vec_variables, var_use, vec_var_use, stat_values, device))
+                            domain_test_data.append(process_data(model_type, ds_domain_full_test, vec_domain_full_test, variables, vec_variables, var_use, vec_var_use, stat_values, device))
 
                             domain_train_batches.append(batch_generator(domain_train_data[idi], batch_size))
 
@@ -1331,7 +1333,7 @@ def model_parameters(model_type, param_dict):
 
 
 #==================================================================================================
-def features_stat(model_type, train_data, test_data, vec_train_data, vec_test_data, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=None):
+def features_stat(model_type, train_data, test_data, vec_train_data, vec_test_data, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=None, model_parameters=None):
 
     if model_type == "NN":
         stat_values = features_stat_NN(train_data, test_data, variables, var_names, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
@@ -1340,7 +1342,7 @@ def features_stat(model_type, train_data, test_data, vec_train_data, vec_test_da
     elif model_type == "APNN":
         stat_values = features_stat_APNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
     elif model_type == "APSNN":
-        stat_values = features_stat_APSNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
+        stat_values = features_stat_APSNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, model_parameters, load_it=load_it)
     elif model_type == "PNET":
         stat_values = features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec_variables, vec_var_names, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
     elif model_type == "DANN":
@@ -1359,7 +1361,7 @@ def update_model(model_type, model, criterion, parameters, batch_data, domain_ba
     elif model_type == "APNN":
         model = update_APNN(model, criterion, parameters, batch_data, stat_values, var_use, device)
     elif model_type == "APSNN":
-        model = update_APSNN(model, criterion, parameters, batch_data, stat_values, var_use, device)
+        model = update_APSNN(model, criterion, parameters, batch_data, var_use, device)
     elif model_type == "PNET":
         model = update_PNET(model, criterion, parameters, batch_data, device)
     elif model_type == "DANN":
@@ -1369,7 +1371,7 @@ def update_model(model_type, model, criterion, parameters, batch_data, domain_ba
 
 
 #==================================================================================================
-def process_data(model_type, scalar_var, vector_var, variables, vec_variables, var_use, vec_var_use):
+def process_data(model_type, scalar_var, vector_var, variables, vec_variables, var_use, vec_var_use, stat_values, device):
 
     if model_type == "NN":
         input_data = process_data_NN(scalar_var, variables)
@@ -1378,7 +1380,7 @@ def process_data(model_type, scalar_var, vector_var, variables, vec_variables, v
     elif model_type == "APNN":
         input_data = process_data_APNN(scalar_var, variables)
     elif model_type == "APSNN":
-        input_data = process_data_APSNN(scalar_var, variables)
+        input_data = process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, device)
     elif model_type == "PNET":
         input_data = process_data_PNET(scalar_var, vector_var, vec_variables, vec_var_use)
     elif model_type == "DANN":

@@ -12,6 +12,7 @@ from statsmodels.stats.weightstats import DescrStatsW
 numpy_random = np.random.RandomState(16)
 sys.path.append("..")
 from custom_opts.ranger import Ranger
+from madminer.utils import morphing as m
 import tools
 import random
 
@@ -84,8 +85,6 @@ class build_APSNN(nn.Module):
                 self.mean_pca = torch.tensor(stat_values["mean_pca"], dtype=torch.float32)
                 self.std_pca = torch.tensor(stat_values["std_pca"], dtype=torch.float32)
 
-        n_output = self.par_dim
-
         self.par_dim = stat_values["par_dim"]
         self.input_dim = n_var - self.par_dim
         self.hidden = nn.ModuleList()
@@ -94,7 +93,7 @@ class build_APSNN(nn.Module):
                 self.hidden.append(AffineConditioning(self.input_dim, self.par_dim, parameters[7][0][i], BatchNorm=parameters[7][2], Dropout=parameters[7][3], activation_func=parameters[7][1]))
             if i > 0:
                 self.hidden.append(AffineConditioning(parameters[7][0][i-1], self.par_dim, parameters[7][0][i], BatchNorm=parameters[7][2], Dropout=parameters[7][3], activation_func=parameters[7][1]))
-        self.hidden.append(nn.Linear(parameters[7][0][-1], n_output))
+        self.hidden.append(nn.Linear(parameters[7][0][-1], self.par_dim))
 
     def stat_device(self, dev):
         self.mean = self.mean.to(dev)
@@ -132,19 +131,22 @@ def model_parameters_APSNN(param_dict):
     activation_func = param_dict["activation_func"]
     batch_norm = param_dict["batch_norm"]
     dropout = param_dict["dropout"]
+    parameter_max_power = param_dict["parameter_max_power"]
+    max_overall_power = param_dict["max_overall_power"]
+    basis = param_dict["basis"]
 
     model_parameters = []
     for i_affine_setups in affine_setups:
         for i_activation_func in activation_func:
             for i_batch_norm in batch_norm:
                 for i_dropout in dropout:
-                    model_parameters.append([i_affine_setups] + [i_activation_func] + [i_batch_norm] + [i_dropout])
+                    model_parameters.append([i_affine_setups] + [i_activation_func] + [i_batch_norm] + [i_dropout] + [parameter_max_power] + [max_overall_power] + [basis])
 
     return model_parameters
 
 
 #==================================================================================================
-def features_stat_APSNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, load_it=None):
+def features_stat_APSNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, model_parameters, load_it=None):
 
     train_data = pd.DataFrame.from_dict(train_data)
     test_data = pd.DataFrame.from_dict(test_data)
@@ -154,14 +156,10 @@ def features_stat_APSNN(train_data, test_data, variables, var_names, var_use, cl
     for i in range(len(variables)):
         if len(var_use[i]) > 2:
             sys.exit("Code does not support more than 2 signal classes!")
-            # It can be extended for more than 2 classes
-
         if var_use[i] != "F":
             par_dim += 1
             par_idx.append(i)
 
-    train_data_len = len(train_data)
-    test_data_len = len(test_data)
     for i in range(par_dim):
         idx = par_idx[i]
         train_data[variables[idx]] = numpy_random.normal(loc=0.0, scale=1.0, size=len(train_data))
@@ -183,6 +181,15 @@ def features_stat_APSNN(train_data, test_data, variables, var_names, var_use, cl
         print("par_idx: " + str(par_idx))
     stat_values={"mean": mean, "std": std, "dim": dim, "par_dim": par_dim, "par_idx": par_idx}
 
+    if model_parameters is not None:
+        morpher = m.PhysicsMorpher(parameter_max_power=model_parameters["parameter_max_power"])
+        components = morpher.find_components(max_overall_power=model_parameters["max_overall_power"])
+        if len(components) == len(model_parameters["basis"]):
+            morpher.set_basis(basis_numpy=np.array(model_parameters["basis"]))
+        else:
+            sys.exit("It was expected a basis with " + str(len(components)) + " components, but " + str(len(model_parameters["basis"])) + " was provided!")
+        morpher.calculate_morphing_matrix()        
+        stat_values["morpher"] = morpher 
 
     for ivar in range(len(variables)):
         fig1 = plt.figure(figsize=(9,5))
@@ -222,7 +229,7 @@ def features_stat_APSNN(train_data, test_data, variables, var_names, var_use, cl
 
 
 #==================================================================================================
-def update_APSNN(model, criterion, parameters, batch_data, stat_values, var_use, device):
+def update_APSNN(model, criterion, parameters, batch_data, var_use, device):
 
     if parameters[3] == "adam":
         optimizer = torch.optim.Adam(model.parameters(), lr=parameters[6], eps=1e-07)
@@ -237,21 +244,16 @@ def update_APSNN(model, criterion, parameters, batch_data, stat_values, var_use,
     data_x_b, data_y_b, data_w_b = batch_data
     del batch_data
 
-
-    # Produce random values for EFT parameters
-    par_dim = stat_values["par_dim"]
-    for i in range(par_dim):
-        idx = stat_values["par_idx"][i]
-        data_x_b[:,idx] = numpy_random.normal(loc=0.0, scale=1.0, size=len(data_y_b))
-
     if device == "cuda":
         w = torch.FloatTensor(data_w_b).view(-1,1).to("cuda")
         x = torch.FloatTensor(data_x_b).to("cuda")
-        y = torch.IntTensor(data_y_b).view(-1,1).to("cuda")
+        y = torch.IntTensor(data_y_b).to("cuda")
     else:
         w = torch.FloatTensor(data_w_b).view(-1,1)
         x = torch.FloatTensor(data_x_b)
-        y = torch.IntTensor(data_y_b).view(-1,1)
+        y = torch.IntTensor(data_y_b)
+
+    #print("shapes", x.shape, w.shape, y.shape)
 
     x.requires_grad=True
     yhat = model(x)
@@ -268,13 +270,119 @@ def update_APSNN(model, criterion, parameters, batch_data, stat_values, var_use,
 
 
 #==================================================================================================
-def process_data_APSNN(scalar_var, variables):
+def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, device):
+
+    basis_indexes = [200, 201, 202, 203, 204, 207, 208, 209, 210, 211, 217, 218, 219, 220, 223, 224, 225, 226, 227, 233, 234, 235, 238, 239, 240, 241, 242, 248, 249, 252, 253, 254, 255, 256, 262, 265, 266, 267, 268, 269, 298, 299, 300, 301, 302, 308, 309, 310, 311, 317, 318, 319, 325, 326, 332]
+    #for i in basis_indexes:
+    #    print(vector_var["eftWeights"][0,i])
 
     scalar_var = pd.DataFrame.from_dict(scalar_var)
+    
+    #------------------------------------------------------
+    # Produce random values for EFT parameters
+    par_dim = stat_values["par_dim"]
+    data_x_param = []
+    for i in range(par_dim):
+        idx = stat_values["par_idx"][i]
+        scalar_var[variables[idx]] = numpy_random.normal(loc=0.0, scale=1.0, size=len(scalar_var))
+        data_x_param.append(scalar_var[variables[idx]].copy())
     data_x = scalar_var[variables]
     data_x = data_x.values
-    data_y = np.array(scalar_var['class']).ravel()
-    data_w = np.array(scalar_var['mvaWeight']).ravel()
+    #print("data_x", data_x.shape)
+    data_x_param = np.array(data_x_param).T
+    #print("data_x_param", data_x_param.shape)
+    
+    #------------------------------------------------------
+    eft_weights = np.array([vector_var["eftWeights"][:,i] for i in basis_indexes]).T
+    #print("eft_shape", eft_weights.shape)
+    #print(eft_weights[0,0], eft_weights[0,2])
+    data_w_original = np.array(scalar_var['mvaWeight']).ravel()
+    #print(eft_weights[0,0]*data_w[0], eft_weights[0,2]*data_w[0])
+    data_w_eft = eft_weights*data_w_original[:,None]
+    #print("w_shape", data_w.shape)
+    #print(data_w[0,0], data_w[0,2])
+
+    morpher = stat_values["morpher"]  
+    #data_x_param = np.array([data_x[i,:] for i in range(len(data_x))])
+    morphing_weights = morpher.calculate_morphing_weights(theta=data_x_param)
+    #print("morphing_weights", morphing_weights.shape)
+    #print("data_w_eft", data_w_eft.shape)
+    data_w = np.array([np.dot(morphing_weights[i,:],data_w_eft[i,:]) for i in range(len(data_w_eft))])
+    #data_w2 = np.array([np.dot(morphing_weights[i,:],data_w_eft[i,:]*data_w_eft[i,:]) for i in range(len(data_w_eft))])
+    #print("data_w", data_w.shape)
+    #print("data_w2", data_w2.shape)
+    #print("data_w_b", data_w_b[0], data_w_b[100], data_w_b[500])
+
+    #------------------------------------------------------
+    data_xsec = data_w.sum() # xsec
+    #print("data_xsec", data_xsec)
+    #data_w_sum_unc = np.sqrt(np.power(data_w,2).sum()) # xsec unc.
+    #print("data_xsec_unc", data_w_sum_unc)
+    #data_w_sum_unc = np.sqrt(np.maximum(data_w2.sum(),0.)) # xsec unc.
+    #print("data_xsec_unc", data_w_sum_unc)
+
+    morphing_weights_grad = morpher.calculate_morphing_weight_gradient(theta=data_x_param, device=device)
+    #print("morphing_weights_grad", morphing_weights_grad.shape)
+    
+    data_w_grad = np.array([np.dot(morphing_weights_grad[i,:],data_w_eft[i,:]) for i in range(len(data_w_eft))])        
+    #print("data_w_grad", data_w_grad.shape)
+
+    data_xsec_grad = data_w_grad.sum(axis=0) # xsec_grad
+    #print("data_xsec_grad", data_xsec_grad.shape)
+
+
+
+    #xsec_shape ()
+    #xsec_grad_shape (9,)
+    #data_w_shape (49999,)
+    #data_w_grad_shape (49999, 9)
+
+    
+    """
+    score1 = data_w_grad[:, :] / data_w[:, np.newaxis] 
+    score = score1 - data_xsec_grad[np.newaxis, :] / data_xsec[np.newaxis, np.newaxis]
+    score2 = score1 - score
+
+    data_w_2D = data_w_grad/score1
+    data_xsec_2D = data_xsec_grad[np.newaxis, :]/score2
+    data_xsec_grad_2D = score2*data_xsec_2D
+
+    score4 = np.array([[data_w_2D[:,i], data_w_grad[:,i], data_xsec_2D[:,i], data_xsec_grad_2D[:,i]] for i in range(par_dim)])
+
+
+    score4 = np.moveaxis(score4.T, 1, 2)
+    #print("score4_shape", score4.shape)
+    """
+
+    #score_200_0 = data_w_grad[200, 0]/data_w[200] - data_xsec_grad[0]/data_xsec
+
+    #print("xsec_shape", data_xsec.shape)
+    #print("xsec_grad_shape", data_xsec_grad.shape)
+    #print("data_w_shape", data_w.shape)
+    #print("data_w_grad_shape", data_w_grad.shape)
+
+    #print("xsec", np.mean(data_xsec), np.std(data_xsec))
+    #print("xsec_grad", np.mean(data_xsec_grad[0]), np.std(data_xsec_grad[0]))
+    #print("data_w", np.mean(data_w), np.std(data_w))
+    #print("data_w_grad", np.mean(data_w_grad[:,0]), np.std(data_w_grad[:,0]))
+    #print("score_info", np.mean(score[:,0]), np.std(score[:,0]))
+    #print("score1_info", np.mean(score1[:,0]), np.std(score1[:,0]))
+    #print("score2_info", np.mean(score2[:,0]), np.std(score2[:,0]))
+    #print("score_200_0", score_200_0, score[200,0])
+    
+
+    """
+    data_w (49999,)
+    data_w_grad (49999, 9)
+    data_xsec ()
+    data_xsec_grad (9,)
+
+    score = weight_gradients[:, :] / weights[:, np.newaxis]  # (n_samples, n_gradients)
+    score = score - xsec_gradients[np.newaxis, :] / xsecs[np.newaxis, np.newaxis]
+    """
+    data_y = data_w_grad
+    #print("data_y", data_y.shape)
+    #print("data_y_values", data_y[0,0], data_y[0,3], data_y[0,5], data_y[0,7])
 
     input_data = [data_x, data_y, data_w]
 
@@ -285,12 +393,6 @@ def process_data_APSNN(scalar_var, variables):
 def evaluate_APSNN(input_data, model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, device, mode):
 
     data_x, data_y, data_w = input_data
-
-    # Produce random values for EFT parameters
-    par_dim = stat_values["par_dim"]
-    for i in range(par_dim):
-        idx = stat_values["par_idx"][i]
-        data_x[:,idx] = numpy_random.normal(loc=0.0, scale=1.0, size=len(data_y))
 
     n_eval_steps = int(len(data_w)/eval_step_size) + 1
     last_eval_step = len(data_w)%eval_step_size
@@ -317,11 +419,13 @@ def evaluate_APSNN(input_data, model, i_eval, eval_step_size, criterion, paramet
 
     elif mode == "metric":
         eval_data_w_sum = eval_data_w.sum()
-        data_loss_i = eval_data_w_sum*criterion(torch.IntTensor(eval_data_y).view(-1,1), eval_data_yhat, torch.FloatTensor(eval_data_w).view(-1,1)).item()
+        data_loss_i = eval_data_w_sum*criterion(torch.IntTensor(eval_data_y), eval_data_yhat, torch.FloatTensor(eval_data_w).view(-1,1)).item()
         if parameters[4] == 'cce':
             data_acc_i = eval_data_w_sum*np.average(eval_data_y == eval_data_yhat.max(1)[1].numpy(), weights=eval_data_w)
         elif parameters[4] == 'bce':
             data_acc_i = eval_data_w_sum*np.average(eval_data_y == (eval_data_yhat[:, 0] > 0.5).numpy(), weights=eval_data_w)
+        elif parameters[4] == 'mse':
+            data_acc_i = 0
         del eval_data_yhat
 
         return [data_loss_i, data_acc_i]

@@ -25,6 +25,15 @@ model_parameters = {
     'activation_func': ['elu', 'relu', 'tanh', 'selu', 'gelu'],
     'batch_norm': [True, False],
     'dropout': [None, 0.2, 0.5],
+    # EFT parameters
+    "parameter_max_power": [2, 2],
+    "max_overall_power": 2,
+    "basis": [[0.0, 0.0],
+            [0.0, 1.0],
+            [1.0, 0.0],
+            [1.0, 1.0],
+            [0.0, 2.0],
+            [2.0, 0.0]]
     }
 
 
@@ -34,7 +43,7 @@ model_parameters = {
 batch_size = [1000, 500]
 load_size_stat = 120000
 load_size_training = 100000
-num_load_for_check = 4 # It must be smaler or equal than the maximum nSlices
+num_load_for_check = 4 # It must be smaller or equal to the maximum nSlices
 train_frac = 0.5
 eval_step_size = 250
 eval_interval = 20
