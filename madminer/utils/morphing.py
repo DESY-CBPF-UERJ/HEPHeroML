@@ -716,14 +716,11 @@ class PhysicsMorpher:
             component_weight_gradients = list(executor.map(self.get_component_weight_gradient, c_idx, repeat(theta)))
         component_weight_gradients = np.moveaxis(np.array(component_weight_gradients), 0, 1)
 
-        print("device", device)
         if device == "cuda":
-            print("start")
             morphing_matrix = torch.FloatTensor(morphing_matrix).to("cuda")
             component_weight_gradients = torch.FloatTensor(component_weight_gradients).to("cuda")
             morphing_weight_gradient = torch.tensordot(morphing_matrix.T, component_weight_gradients.T, dims=([1], [1])).T
             morphing_weight_gradient = morphing_weight_gradient.cpu().numpy()
-            print("end")
         else:
             morphing_weight_gradient = morphing_matrix.T.dot(component_weight_gradients.T).T # time consuming
 

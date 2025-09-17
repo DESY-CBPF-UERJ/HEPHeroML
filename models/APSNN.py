@@ -15,6 +15,9 @@ from custom_opts.ranger import Ranger
 from madminer.utils import morphing as m
 import tools
 import random
+import concurrent.futures
+import multiprocessing
+from itertools import repeat
 
 class AffineConditioning(nn.Module):
     def __init__(self, input_dim, par_dim, output_dim, BatchNorm=False, Dropout=None, activation_func="relu"):
@@ -159,11 +162,15 @@ def features_stat_APSNN(train_data, test_data, variables, var_names, var_use, cl
         if var_use[i] != "F":
             par_dim += 1
             par_idx.append(i)
-
+            
+    train_parameter_points = np.array([numpy_random.normal(loc=0.0, scale=1.0, size=par_dim) for ip in range(500)])
+    test_parameter_points = np.array([numpy_random.normal(loc=0.0, scale=1.0, size=par_dim) for ip in range(500)])
+    train_elements = numpy_random.choice(500, size=len(train_data))
+    test_elements = numpy_random.choice(500, size=len(test_data))
     for i in range(par_dim):
         idx = par_idx[i]
-        train_data[variables[idx]] = numpy_random.normal(loc=0.0, scale=1.0, size=len(train_data))
-        test_data[variables[idx]] = numpy_random.normal(loc=0.0, scale=1.0, size=len(test_data))
+        train_data[variables[idx]] = np.array([train_parameter_points[train_elements[ie],i] for ie in range(len(train_data))])
+        test_data[variables[idx]] = np.array([test_parameter_points[test_elements[ie],i] for ie in range(len(test_data))])
 
     mean = []
     std = []
@@ -276,21 +283,25 @@ def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, 
     #for i in basis_indexes:
     #    print(vector_var["eftWeights"][0,i])
 
-    scalar_var = pd.DataFrame.from_dict(scalar_var)
-    
+    scalar_var = pd.DataFrame.from_dict(scalar_var)  
+
+    n_points = 150 # transform it in a parameter
     #------------------------------------------------------
     # Produce random values for EFT parameters
     par_dim = stat_values["par_dim"]
+    parameter_points = np.array([numpy_random.normal(loc=0.0, scale=1.0, size=par_dim) for ip in range(n_points)])
+    elements = numpy_random.choice(n_points, size=len(scalar_var))
+    print(elements[0:100])
     data_x_param = []
     for i in range(par_dim):
         idx = stat_values["par_idx"][i]
-        scalar_var[variables[idx]] = numpy_random.normal(loc=0.0, scale=1.0, size=len(scalar_var))
+        scalar_var[variables[idx]] = np.array([parameter_points[elements[ie],i] for ie in range(len(scalar_var))])
         data_x_param.append(scalar_var[variables[idx]].copy())
     data_x = scalar_var[variables]
     data_x = data_x.values
     #print("data_x", data_x.shape)
     data_x_param = np.array(data_x_param).T
-    #print("data_x_param", data_x_param.shape)
+    print("data_x_param", data_x_param.shape)
     
     #------------------------------------------------------
     eft_weights = np.array([vector_var["eftWeights"][:,i] for i in basis_indexes]).T
@@ -304,36 +315,101 @@ def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, 
 
     morpher = stat_values["morpher"]  
     #data_x_param = np.array([data_x[i,:] for i in range(len(data_x))])
+    
     morphing_weights = morpher.calculate_morphing_weights(theta=data_x_param)
-    #print("morphing_weights", morphing_weights.shape)
+    print("morphing_weights", morphing_weights.shape)
     #print("data_w_eft", data_w_eft.shape)
+
+    ind_points = np.argsort(elements)
+    element_points = elements[ind_points]
+    idx_unique = np.unique(element_points, return_index=True)[1]
+    #------------------------------------------------------
+    morphing_weight_points = morphing_weights[ind_points]
+    morphing_weight_points = morphing_weight_points[idx_unique]
+    #------------------------------------------------------
+    
     data_w = np.array([np.dot(morphing_weights[i,:],data_w_eft[i,:]) for i in range(len(data_w_eft))])
     #data_w2 = np.array([np.dot(morphing_weights[i,:],data_w_eft[i,:]*data_w_eft[i,:]) for i in range(len(data_w_eft))])
     #print("data_w", data_w.shape)
     #print("data_w2", data_w2.shape)
     #print("data_w_b", data_w_b[0], data_w_b[100], data_w_b[500])
 
+    morphing_weights_grad = morpher.calculate_morphing_weight_gradient(theta=data_x_param, device=device)
+    #print("morphing_weights_grad", morphing_weights_grad.shape)
+
     #------------------------------------------------------
-    data_xsec = data_w.sum() # xsec
+    morphing_weights_grad_points = morphing_weights_grad[ind_points]
+    morphing_weights_grad_points = morphing_weights_grad_points[idx_unique]
+    #------------------------------------------------------
+    
+    data_w_grad = np.array([np.dot(morphing_weights_grad[i,:],data_w_eft[i,:]) for i in range(len(data_w_eft))])        
+    #print("data_w_grad", data_w_grad.shape)
+
+    #------------------------------------------------------
+    data_xsec_points = np.array([np.array([np.dot(morphing_weight_points[ip,:],data_w_eft[ie,:]) for ie in range(len(data_w_eft))]).sum() for ip in range(n_points)])  
+    print("data_xsec_points", data_xsec_points.shape)
+
+    data_xsec = np.array([data_xsec_points[elements[ie]] for ie in range(len(data_w_eft))])
+    #data_xsec = data_w.sum() # xsec  # WRONG
+    
     #print("data_xsec", data_xsec)
     #data_w_sum_unc = np.sqrt(np.power(data_w,2).sum()) # xsec unc.
     #print("data_xsec_unc", data_w_sum_unc)
     #data_w_sum_unc = np.sqrt(np.maximum(data_w2.sum(),0.)) # xsec unc.
     #print("data_xsec_unc", data_w_sum_unc)
 
-    morphing_weights_grad = morpher.calculate_morphing_weight_gradient(theta=data_x_param, device=device)
-    #print("morphing_weights_grad", morphing_weights_grad.shape)
-    
-    data_w_grad = np.array([np.dot(morphing_weights_grad[i,:],data_w_eft[i,:]) for i in range(len(data_w_eft))])        
-    #print("data_w_grad", data_w_grad.shape)
 
-    data_xsec_grad = data_w_grad.sum(axis=0) # xsec_grad
+    print("morphing_weights_grad_points[ip,:]", morphing_weights_grad_points[0,:].shape)
+    print("data_w_eft[ie,:]", data_w_eft[0,:].shape)
+    """
+    if device == "cuda":
+        morphing_weights_grad_points = torch.FloatTensor(morphing_weights_grad_points).to("cuda")
+        data_w_eft = torch.FloatTensor(data_w_eft).to("cuda")
+        
+        #morphing_weight_gradient = torch.tensordot(morphing_matrix.T, component_weight_gradients.T, dims=([1], [1])).T
+        data_xsec_grad_points = torch.tensor([torch.stack([torch.tensordot(morphing_weights_grad_points[ip,:],data_w_eft[ie,:], dims=1) for ie in range(len(data_w_eft))], dim=0).sum() for ip in range(n_points)]) # time consuming
+        #data_xsec_grad_points = torch.stack([torch.tensordot(morphing_weights_grad_points[7,:],data_w_eft[ie,:], dims=1) for ie in range(len(data_w_eft))], dim=0)
+
+        data_xsec_grad_points = data_xsec_grad_points.cpu().numpy()
+    else:
+        data_xsec_grad_points = np.array([np.array([np.dot(morphing_weights_grad_points[ip,:],data_w_eft[ie,:]) for ie in range(len(data_w_eft))]).sum() for ip in range(n_points)])
+    """
+
+    #with concurrent.futures.ProcessPoolExecutor(max_workers=self.cpu_count) as executor:
+    #    component_weight_gradients = list(executor.map(self.get_component_weight_gradient, c_idx, repeat(theta)))
+
+    cpu_count = multiprocessing.cpu_count()
+    if cpu_count <= 2:
+        cpu_count = 1
+    else:
+        cpu_count -= 2
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=cpu_count) as executor:
+        data_xsec_grad_points = np.array(list(executor.map(get_data_xsec_grad_points, range(n_points), repeat(morphing_weights_grad_points), repeat(data_w_eft))))
+    
+    #data_xsec_grad_points = np.array([np.array([np.dot(morphing_weights_grad_points[ip,:],data_w_eft[ie,:]) for ie in range(len(data_w_eft))]).sum() for ip in range(n_points)]) # time consuming
+    
+
+    #component_weight_gradients = np.moveaxis(np.array(component_weight_gradients), 0, 1)    
+    
+    #print("data_xsec_grad_points_shape", data_xsec_grad_points.shape)
+    print("data_xsec_grad_points", data_xsec_grad_points)
+
+
+    #data_xsec_grad = np.array([data_xsec_grad_points[elements[ie]] for ie in range(len(data_w_eft))])
+    data_xsec_grad = data_w_grad.sum(axis=0) # xsec_grad  # WRONG
+    
     #print("data_xsec_grad", data_xsec_grad.shape)
 
 
 
     #xsec_shape ()
     #xsec_grad_shape (9,)
+    #data_w_shape (49999,)
+    #data_w_grad_shape (49999, 9)
+
+    #xsec_shape (49999,)
+    #xsec_grad_shape (49999,)
     #data_w_shape (49999,)
     #data_w_grad_shape (49999, 9)
 
@@ -356,10 +432,10 @@ def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, 
 
     #score_200_0 = data_w_grad[200, 0]/data_w[200] - data_xsec_grad[0]/data_xsec
 
-    #print("xsec_shape", data_xsec.shape)
-    #print("xsec_grad_shape", data_xsec_grad.shape)
-    #print("data_w_shape", data_w.shape)
-    #print("data_w_grad_shape", data_w_grad.shape)
+    print("xsec_shape", data_xsec.shape)
+    print("xsec_grad_shape", data_xsec_grad.shape)
+    print("data_w_shape", data_w.shape)
+    print("data_w_grad_shape", data_w_grad.shape)
 
     #print("xsec", np.mean(data_xsec), np.std(data_xsec))
     #print("xsec_grad", np.mean(data_xsec_grad[0]), np.std(data_xsec_grad[0]))
@@ -387,7 +463,12 @@ def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, 
     input_data = [data_x, data_y, data_w]
 
     return input_data
+    
 
+def get_data_xsec_grad_points(ip, morphing_weights_grad_points, data_w_eft):
+    data_xsec_grad = np.array([np.dot(morphing_weights_grad_points[ip,:],data_w_eft[ie,:]) for ie in range(len(data_w_eft))]).sum()
+    return data_xsec_grad
+    
 
 #==================================================================================================
 def evaluate_APSNN(input_data, model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, device, mode):
