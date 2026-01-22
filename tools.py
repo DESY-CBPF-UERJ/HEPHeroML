@@ -32,6 +32,7 @@ from models.PNN import *
 from models.APNN import *
 from models.APSNN import *
 from models.PNET import *
+from models.M2CNN import *
 from models.DANN import *
 
 """
@@ -847,8 +848,8 @@ class BCE_loss(nn.Module): # use with sigmoid
         y_pred = (1-2*epsilon)*y_pred + epsilon
 
 
-        total_bce_loss = torch.sum((-y_true * torch.log(y_pred) - (1 - y_true) * torch.log(1 - y_pred))*weight)
-        num_of_samples = torch.sum(weight)
+        total_bce_loss = torch.sum((-y_true * torch.log(y_pred) - (1 - y_true) * torch.log(1 - y_pred))*torch.abs(weight))
+        num_of_samples = torch.sum(torch.abs(weight))
         mean_bce_loss = total_bce_loss / num_of_samples
 
         return mean_bce_loss
@@ -872,8 +873,8 @@ class CCE_loss(nn.Module): # use with softmax
 
         loss_n = -torch.sum(y_true*torch.log(y_pred), dim=-1).view(-1,1)
 
-        total_ce_loss = torch.sum(loss_n*weight)
-        num_of_samples = torch.sum(weight)
+        total_ce_loss = torch.sum(loss_n*torch.abs(weight))
+        num_of_samples = torch.sum(torch.abs(weight))
         mean_ce_loss = total_ce_loss / num_of_samples
 
         return mean_ce_loss
@@ -981,8 +982,8 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
                 if ((load_it == 0) or (period_count == waiting_period)) and (iteration_cum == 0):
                     ds_full_train, ds_full_test, vec_full_train, vec_full_test, class_names, class_labels, class_colors, reweight_info = get_sample(input_path, period, classes, N_signal, train_frac, load_size, load_it, reweight_info, features=variables+["evtWeight"], vec_features=vec_variables, verbose=verbose)
 
-                    train_data = process_data(model_type, ds_full_train, vec_full_train, variables, vec_variables, var_use, vec_var_use, stat_values, device)
-                    test_data = process_data(model_type, ds_full_test, vec_full_test, variables, vec_variables, var_use, vec_var_use, stat_values, device)
+                    train_data = process_data(model_type, ds_full_train, vec_full_train, variables, vec_variables, var_use, vec_var_use, stat_values, device, parameters)
+                    test_data = process_data(model_type, ds_full_test, vec_full_test, variables, vec_variables, var_use, vec_var_use, stat_values, device, parameters)
 
                     #np.set_printoptions(legacy='1.21')
                     train_batches = batch_generator(train_data, batch_size)
@@ -1001,8 +1002,8 @@ def train_model(input_path, N_signal, train_frac, load_size, parameters, variabl
                         for idi in range(len(domains)):
                             ds_domain_full_train, ds_domain_full_test, vec_domain_full_train, vec_domain_full_test, domain_names, domain_labels, domain_colors, _ = get_sample(input_path, period, domains[idi], N_signal, train_frac, load_size, load_it, reweight_info, features=variables+["evtWeight"], vec_features=vec_variables, verbose=verbose)
 
-                            domain_train_data.append(process_data(model_type, ds_domain_full_train, vec_domain_full_train, variables, vec_variables, var_use, vec_var_use, stat_values, device))
-                            domain_test_data.append(process_data(model_type, ds_domain_full_test, vec_domain_full_test, variables, vec_variables, var_use, vec_var_use, stat_values, device))
+                            domain_train_data.append(process_data(model_type, ds_domain_full_train, vec_domain_full_train, variables, vec_variables, var_use, vec_var_use, stat_values, device, parameters))
+                            domain_test_data.append(process_data(model_type, ds_domain_full_test, vec_domain_full_test, variables, vec_variables, var_use, vec_var_use, stat_values, device, parameters))
 
                             domain_train_batches.append(batch_generator(domain_train_data[idi], batch_size))
 
@@ -1307,6 +1308,8 @@ def build_model(model_type, parameters, n_classes, stat_values, variables, var_u
         model = build_APSNN(parameters, variables, n_classes, stat_values, device)
     elif model_type == "PNET":
         model = build_PNET(vec_variables, vec_var_use, n_classes, parameters, stat_values, device)
+    elif model_type == "M2CNN":
+        model = build_M2CNN(vec_variables, n_classes, parameters, stat_values, device)
     elif model_type == "DANN":
         model = build_DANN(parameters, variables, n_classes, stat_values, device)
 
@@ -1326,6 +1329,8 @@ def model_parameters(model_type, param_dict):
         model_parameters = model_parameters_APSNN(param_dict)
     elif model_type == "PNET":
         model_parameters = model_parameters_PNET(param_dict)
+    elif model_type == "M2CNN":
+        model_parameters = model_parameters_M2CNN(param_dict)
     elif model_type == "DANN":
         model_parameters = model_parameters_DANN(param_dict)
 
@@ -1333,7 +1338,7 @@ def model_parameters(model_type, param_dict):
 
 
 #==================================================================================================
-def features_stat(model_type, train_data, test_data, vec_train_data, vec_test_data, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=None, model_parameters=None):
+def features_stat(model_type, train_data, test_data, vec_train_data, vec_test_data, variables, vec_variables, var_names, vec_var_names, var_use, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=None, parameters=None):
 
     if model_type == "NN":
         stat_values = features_stat_NN(train_data, test_data, variables, var_names, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
@@ -1342,9 +1347,11 @@ def features_stat(model_type, train_data, test_data, vec_train_data, vec_test_da
     elif model_type == "APNN":
         stat_values = features_stat_APNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
     elif model_type == "APSNN":
-        stat_values = features_stat_APSNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, model_parameters, load_it=load_it)
+        stat_values = features_stat_APSNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, parameters, load_it=load_it)
     elif model_type == "PNET":
         stat_values = features_stat_PNET(train_data, test_data, vec_train_data, vec_test_data, vec_variables, vec_var_names, vec_var_use, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
+    elif model_type == "M2CNN":
+        stat_values = features_stat_M2CNN(train_data, test_data, vec_train_data, vec_test_data, vec_variables, vec_var_names, class_names, class_labels, class_colors, plots_outpath, parameters, load_it=load_it)
     elif model_type == "DANN":
         stat_values = features_stat_DANN(train_data, test_data, variables, var_names, class_names, class_labels, class_colors, plots_outpath, load_it=load_it)
 
@@ -1364,6 +1371,8 @@ def update_model(model_type, model, criterion, parameters, batch_data, domain_ba
         model = update_APSNN(model, criterion, parameters, batch_data, var_use, device)
     elif model_type == "PNET":
         model = update_PNET(model, criterion, parameters, batch_data, device)
+    elif model_type == "M2CNN":
+        model = update_M2CNN(model, criterion, parameters, batch_data, device)
     elif model_type == "DANN":
         model = update_DANN(model, criterion, parameters, batch_data, domain_batch_data, alpha, device)
 
@@ -1371,7 +1380,7 @@ def update_model(model_type, model, criterion, parameters, batch_data, domain_ba
 
 
 #==================================================================================================
-def process_data(model_type, scalar_var, vector_var, variables, vec_variables, var_use, vec_var_use, stat_values, device):
+def process_data(model_type, scalar_var, vector_var, variables, vec_variables, var_use, vec_var_use, stat_values, device, parameters):
 
     if model_type == "NN":
         input_data = process_data_NN(scalar_var, variables)
@@ -1383,6 +1392,8 @@ def process_data(model_type, scalar_var, vector_var, variables, vec_variables, v
         input_data = process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, device)
     elif model_type == "PNET":
         input_data = process_data_PNET(scalar_var, vector_var, vec_variables, vec_var_use)
+    elif model_type == "M2CNN":
+        input_data = process_data_M2CNN(scalar_var, vector_var, vec_variables, parameters)
     elif model_type == "DANN":
         input_data = process_data_DANN(scalar_var, variables)
 
@@ -1402,6 +1413,8 @@ def evaluate_model(model_type, input_data, model, i_eval, eval_step_size, criter
         i_eval_output = evaluate_APSNN(input_data, model, i_eval, eval_step_size, criterion, parameters, stat_values, var_use, device, mode)
     elif model_type == "PNET":
         i_eval_output = evaluate_PNET(input_data, model, i_eval, eval_step_size, criterion, parameters, device, mode)
+    elif model_type == "M2CNN":
+        i_eval_output = evaluate_M2CNN(input_data, model, i_eval, eval_step_size, criterion, parameters, device, mode)
     elif model_type == "DANN":
         i_eval_output = evaluate_DANN(input_data, model, i_eval, eval_step_size, criterion, parameters, domain_input_data, alpha, device, mode)
 
@@ -1421,6 +1434,8 @@ def feature_score(model_type, input_data, model, min_loss, eval_step_size, crite
         feature_score_info = feature_score_APSNN(input_data, model, min_loss, eval_step_size, criterion, parameters, variables, var_names, var_use, stat_values, device)
     elif model_type == "PNET":
         feature_score_info = feature_score_PNET(input_data, model, min_loss, eval_step_size, criterion, parameters, vec_variables, vec_var_use, vec_var_names, device)
+    elif model_type == "M2CNN":
+        feature_score_info = feature_score_M2CNN(input_data, model, min_loss, eval_step_size, criterion, parameters, vec_variables, vec_var_names, device)
     elif model_type == "DANN":
         feature_score_info = feature_score_DANN(input_data, model, min_loss, eval_step_size, criterion, parameters, variables, var_names, device)
 
@@ -1440,6 +1455,8 @@ def save_model(model_type, model, model_outpath, dim, device):
         save_APSNN(model, model_outpath, dim, device)
     elif model_type == "PNET":
         save_PNET(model, model_outpath, dim, device)
+    elif model_type == "M2CNN":
+        save_M2CNN(model, model_outpath, dim, device)
     elif model_type == "DANN":
         save_DANN(model, model_outpath, dim, device)
 

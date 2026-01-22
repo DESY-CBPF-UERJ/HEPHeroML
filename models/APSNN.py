@@ -149,7 +149,7 @@ def model_parameters_APSNN(param_dict):
 
 
 #==================================================================================================
-def features_stat_APSNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, model_parameters, load_it=None):
+def features_stat_APSNN(train_data, test_data, variables, var_names, var_use, class_names, class_labels, class_colors, plots_outpath, parameters, load_it=None):
 
     train_data = pd.DataFrame.from_dict(train_data)
     test_data = pd.DataFrame.from_dict(test_data)
@@ -188,13 +188,13 @@ def features_stat_APSNN(train_data, test_data, variables, var_names, var_use, cl
         print("par_idx: " + str(par_idx))
     stat_values={"mean": mean, "std": std, "dim": dim, "par_dim": par_dim, "par_idx": par_idx}
 
-    if model_parameters is not None:
-        morpher = m.PhysicsMorpher(parameter_max_power=model_parameters["parameter_max_power"])
-        components = morpher.find_components(max_overall_power=model_parameters["max_overall_power"])
-        if len(components) == len(model_parameters["basis"]):
-            morpher.set_basis(basis_numpy=np.array(model_parameters["basis"]))
+    if parameters is not None:
+        morpher = m.PhysicsMorpher(parameter_max_power=parameters[7][4])
+        components = morpher.find_components(max_overall_power=parameters[7][5])
+        if len(components) == len(parameters[7][6]):
+            morpher.set_basis(basis_numpy=np.array(parameters[7][6]))
         else:
-            sys.exit("It was expected a basis with " + str(len(components)) + " components, but " + str(len(model_parameters["basis"])) + " was provided!")
+            sys.exit("It was expected a basis with " + str(len(components)) + " components, but " + str(len(parameters[7][6])) + " was provided!")
         morpher.calculate_morphing_matrix()        
         stat_values["morpher"] = morpher 
 
@@ -280,6 +280,9 @@ def update_APSNN(model, criterion, parameters, batch_data, var_use, device):
 def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, device):
 
     basis_indexes = [200, 201, 202, 203, 204, 207, 208, 209, 210, 211, 217, 218, 219, 220, 223, 224, 225, 226, 227, 233, 234, 235, 238, 239, 240, 241, 242, 248, 249, 252, 253, 254, 255, 256, 262, 265, 266, 267, 268, 269, 298, 299, 300, 301, 302, 308, 309, 310, 311, 317, 318, 319, 325, 326, 332]
+
+    basis_indexes = [0, 5, 1, 7, 12, 3]
+    
     #for i in basis_indexes:
     #    print(vector_var["eftWeights"][0,i])
 
@@ -291,7 +294,7 @@ def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, 
     par_dim = stat_values["par_dim"]
     parameter_points = np.array([numpy_random.normal(loc=0.0, scale=1.0, size=par_dim) for ip in range(n_points)])
     elements = numpy_random.choice(n_points, size=len(scalar_var))
-    print(elements[0:100])
+    #print(elements[0:100])
     data_x_param = []
     for i in range(par_dim):
         idx = stat_values["par_idx"][i]
@@ -301,24 +304,15 @@ def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, 
     data_x = data_x.values
     #print("data_x", data_x.shape)
     data_x_param = np.array(data_x_param).T
-    print("data_x_param", data_x_param.shape)
+    #print("data_x_param", data_x_param.shape)
     
     #------------------------------------------------------
     eft_weights = np.array([vector_var["eftWeights"][:,i] for i in basis_indexes]).T
-    #print("eft_shape", eft_weights.shape)
-    #print(eft_weights[0,0], eft_weights[0,2])
     data_w_original = np.array(scalar_var['mvaWeight']).ravel()
-    #print(eft_weights[0,0]*data_w[0], eft_weights[0,2]*data_w[0])
     data_w_eft = eft_weights*data_w_original[:,None]
-    #print("w_shape", data_w.shape)
-    #print(data_w[0,0], data_w[0,2])
 
-    morpher = stat_values["morpher"]  
-    #data_x_param = np.array([data_x[i,:] for i in range(len(data_x))])
-    
+    morpher = stat_values["morpher"]      
     morphing_weights = morpher.calculate_morphing_weights(theta=data_x_param)
-    print("morphing_weights", morphing_weights.shape)
-    #print("data_w_eft", data_w_eft.shape)
 
     ind_points = np.argsort(elements)
     element_points = elements[ind_points]
@@ -342,12 +336,11 @@ def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, 
     morphing_weights_grad_points = morphing_weights_grad_points[idx_unique]
     #------------------------------------------------------
     
-    data_w_grad = np.array([np.dot(morphing_weights_grad[i,:],data_w_eft[i,:]) for i in range(len(data_w_eft))])        
-    #print("data_w_grad", data_w_grad.shape)
+    data_w_grad = np.array([np.dot(morphing_weights_grad[i,:],data_w_eft[i,:]) for i in range(len(data_w_eft))])       
 
     #------------------------------------------------------
     data_xsec_points = np.array([np.array([np.dot(morphing_weight_points[ip,:],data_w_eft[ie,:]) for ie in range(len(data_w_eft))]).sum() for ip in range(n_points)])  
-    print("data_xsec_points", data_xsec_points.shape)
+    #print("data_xsec_points", data_xsec_points.shape)
 
     data_xsec = np.array([data_xsec_points[elements[ie]] for ie in range(len(data_w_eft))])
     #data_xsec = data_w.sum() # xsec  # WRONG
@@ -357,26 +350,6 @@ def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, 
     #print("data_xsec_unc", data_w_sum_unc)
     #data_w_sum_unc = np.sqrt(np.maximum(data_w2.sum(),0.)) # xsec unc.
     #print("data_xsec_unc", data_w_sum_unc)
-
-
-    print("morphing_weights_grad_points[ip,:]", morphing_weights_grad_points[0,:].shape)
-    print("data_w_eft[ie,:]", data_w_eft[0,:].shape)
-    """
-    if device == "cuda":
-        morphing_weights_grad_points = torch.FloatTensor(morphing_weights_grad_points).to("cuda")
-        data_w_eft = torch.FloatTensor(data_w_eft).to("cuda")
-        
-        #morphing_weight_gradient = torch.tensordot(morphing_matrix.T, component_weight_gradients.T, dims=([1], [1])).T
-        data_xsec_grad_points = torch.tensor([torch.stack([torch.tensordot(morphing_weights_grad_points[ip,:],data_w_eft[ie,:], dims=1) for ie in range(len(data_w_eft))], dim=0).sum() for ip in range(n_points)]) # time consuming
-        #data_xsec_grad_points = torch.stack([torch.tensordot(morphing_weights_grad_points[7,:],data_w_eft[ie,:], dims=1) for ie in range(len(data_w_eft))], dim=0)
-
-        data_xsec_grad_points = data_xsec_grad_points.cpu().numpy()
-    else:
-        data_xsec_grad_points = np.array([np.array([np.dot(morphing_weights_grad_points[ip,:],data_w_eft[ie,:]) for ie in range(len(data_w_eft))]).sum() for ip in range(n_points)])
-    """
-
-    #with concurrent.futures.ProcessPoolExecutor(max_workers=self.cpu_count) as executor:
-    #    component_weight_gradients = list(executor.map(self.get_component_weight_gradient, c_idx, repeat(theta)))
 
     cpu_count = multiprocessing.cpu_count()
     if cpu_count <= 2:
@@ -388,20 +361,9 @@ def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, 
         data_xsec_grad_points = np.array(list(executor.map(get_data_xsec_grad_points, range(n_points), repeat(morphing_weights_grad_points), repeat(data_w_eft))))
     
     #data_xsec_grad_points = np.array([np.array([np.dot(morphing_weights_grad_points[ip,:],data_w_eft[ie,:]) for ie in range(len(data_w_eft))]).sum() for ip in range(n_points)]) # time consuming
-    
 
-    #component_weight_gradients = np.moveaxis(np.array(component_weight_gradients), 0, 1)    
-    
-    #print("data_xsec_grad_points_shape", data_xsec_grad_points.shape)
-    print("data_xsec_grad_points", data_xsec_grad_points)
-
-
-    #data_xsec_grad = np.array([data_xsec_grad_points[elements[ie]] for ie in range(len(data_w_eft))])
-    data_xsec_grad = data_w_grad.sum(axis=0) # xsec_grad  # WRONG
-    
-    #print("data_xsec_grad", data_xsec_grad.shape)
-
-
+    #data_xsec_grad = data_w_grad.sum(axis=0) # xsec_grad  # WRONG
+    data_xsec_grad = np.array([data_xsec_grad_points[elements[ie]] for ie in range(len(data_w_eft))])
 
     #xsec_shape ()
     #xsec_grad_shape (9,)
@@ -409,54 +371,46 @@ def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, 
     #data_w_grad_shape (49999, 9)
 
     #xsec_shape (49999,)
-    #xsec_grad_shape (49999,)
+    #xsec_grad_shape (49999, 9)
     #data_w_shape (49999,)
     #data_w_grad_shape (49999, 9)
 
-    
     """
     score1 = data_w_grad[:, :] / data_w[:, np.newaxis] 
     score = score1 - data_xsec_grad[np.newaxis, :] / data_xsec[np.newaxis, np.newaxis]
     score2 = score1 - score
+    """
 
+    score1 = data_w_grad[:, :] / data_w[:, np.newaxis]
+    score2 = data_xsec_grad[:, :] / data_xsec[:, np.newaxis]
+    score = data_w_grad[:, :] / data_w[:, np.newaxis] - data_xsec_grad[:, :] / data_xsec[:, np.newaxis]
+    print("score_shape", score.shape)
+
+    """
     data_w_2D = data_w_grad/score1
     data_xsec_2D = data_xsec_grad[np.newaxis, :]/score2
     data_xsec_grad_2D = score2*data_xsec_2D
 
     score4 = np.array([[data_w_2D[:,i], data_w_grad[:,i], data_xsec_2D[:,i], data_xsec_grad_2D[:,i]] for i in range(par_dim)])
-
-
     score4 = np.moveaxis(score4.T, 1, 2)
     #print("score4_shape", score4.shape)
     """
-
-    #score_200_0 = data_w_grad[200, 0]/data_w[200] - data_xsec_grad[0]/data_xsec
 
     print("xsec_shape", data_xsec.shape)
     print("xsec_grad_shape", data_xsec_grad.shape)
     print("data_w_shape", data_w.shape)
     print("data_w_grad_shape", data_w_grad.shape)
 
-    #print("xsec", np.mean(data_xsec), np.std(data_xsec))
-    #print("xsec_grad", np.mean(data_xsec_grad[0]), np.std(data_xsec_grad[0]))
-    #print("data_w", np.mean(data_w), np.std(data_w))
-    #print("data_w_grad", np.mean(data_w_grad[:,0]), np.std(data_w_grad[:,0]))
-    #print("score_info", np.mean(score[:,0]), np.std(score[:,0]))
-    #print("score1_info", np.mean(score1[:,0]), np.std(score1[:,0]))
-    #print("score2_info", np.mean(score2[:,0]), np.std(score2[:,0]))
-    #print("score_200_0", score_200_0, score[200,0])
+    print("xsec", np.mean(data_xsec), np.std(data_xsec))
+    print("xsec_grad", np.mean(data_xsec_grad[0]), np.std(data_xsec_grad[0]))
+    print("data_w", np.mean(data_w), np.std(data_w))
+    print("data_w_grad", np.mean(data_w_grad[:,0]), np.std(data_w_grad[:,0]))
+    print("score_info", np.mean(score[:,0]), np.std(score[:,0]))
+    print("score1_info", np.mean(score1[:,0]), np.std(score1[:,0]))
+    print("score2_info", np.mean(score2[:,0]), np.std(score2[:,0]))
     
-
-    """
-    data_w (49999,)
-    data_w_grad (49999, 9)
-    data_xsec ()
-    data_xsec_grad (9,)
-
-    score = weight_gradients[:, :] / weights[:, np.newaxis]  # (n_samples, n_gradients)
-    score = score - xsec_gradients[np.newaxis, :] / xsecs[np.newaxis, np.newaxis]
-    """
-    data_y = data_w_grad
+    #data_y = data_w_grad
+    data_y = score
     #print("data_y", data_y.shape)
     #print("data_y_values", data_y[0,0], data_y[0,3], data_y[0,5], data_y[0,7])
 
@@ -466,7 +420,7 @@ def process_data_APSNN(scalar_var, variables, var_use, vector_var, stat_values, 
     
 
 def get_data_xsec_grad_points(ip, morphing_weights_grad_points, data_w_eft):
-    data_xsec_grad = np.array([np.dot(morphing_weights_grad_points[ip,:],data_w_eft[ie,:]) for ie in range(len(data_w_eft))]).sum()
+    data_xsec_grad = np.array([np.dot(morphing_weights_grad_points[ip,:],data_w_eft[ie,:]) for ie in range(len(data_w_eft))]).sum(axis=0)
     return data_xsec_grad
     
 
